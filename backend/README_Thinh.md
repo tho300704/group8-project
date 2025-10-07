@@ -1,1 +1,1 @@
-# group8-project
+Lê Đức Thịnh Backend (Node.js + Express)
