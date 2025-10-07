@@ -1,12 +1,20 @@
 // server.js
-const express = require('express');
+
+// Đặt dotenv.config() lên đầu để đảm bảo các biến môi trường được nạp sớm nhất
 const dotenv = require('dotenv');
+dotenv.config();
+
+const express = require('express');
 const cors = require('cors');
+
+// --- PHẦN MỚI: Import hàm kết nối database ---
+const connectDB = require('./config/db');
 
 // Import route từ file userRoutes.js
 const userRoutes = require('./routes/userRoutes');
 
-dotenv.config(); // Nạp các biến môi trường từ file .env
+// --- PHẦN MỚI: Gọi hàm để kết nối đến MongoDB ---
+connectDB();
 
 const app = express();
 app.use(cors()); // Cho phép cross-origin requests
