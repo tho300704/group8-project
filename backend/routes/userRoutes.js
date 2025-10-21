@@ -1,18 +1,15 @@
-// backend/routes/userRoutes.js
+// /backend/routes/userRoutes.js
 
 const express = require('express');
 const router = express.Router();
-const {
-  getUsers,
-  createUser,
-  updateUser, // Import hàm mới
-  deleteUser, // Import hàm mới
-} = require('../controllers/userController');
+const { signupUser, loginUser } = require('../controllers/userController');
 
-// Route cho GET và POST
-router.route('/').get(getUsers).post(createUser);
+// Route cho đăng ký
+router.post('/signup', signupUser);
 
-// Route cho PUT và DELETE, cần có ID
-router.route('/:id').put(updateUser).delete(deleteUser);
+// Route cho đăng nhập
+router.post('/login', loginUser);
+
+// Route cho đăng xuất không cần thiết ở backend với JWT
 
 module.exports = router;
