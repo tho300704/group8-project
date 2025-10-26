@@ -13,7 +13,8 @@ app.use(cors({
     origin: 'http://localhost:3001' // Chỉ định rõ nguồn gốc của frontend
 }));
 // Middleware để đọc req.body dạng JSON
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Định nghĩa route chính
 app.get('/', (req, res) => {

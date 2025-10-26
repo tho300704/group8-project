@@ -3,6 +3,9 @@
 const User = require('../models/User'); // Đảm bảo đường dẫn đúng
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto'); // Import module crypto sẵn có của Node.js
+const sendEmail = require('../utils/sendEmail'); // Import hàm gửi email
+const cloudinary = require('../utils/cloudinary');
 
 // Hàm trợ giúp để tạo token -> Tránh lặp code
 const generateToken = (id) => {
@@ -65,9 +68,18 @@ const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const user = await User.findOne({ email });
+        // Yêu cầu Mongoose lấy cả trường password (mặc dù nó là select: false)
+        const user = await User.findOne({ email }).select('+password');
 
-        if (user && (await bcrypt.compare(password, user.password))) {
+        // Thêm một bước kiểm tra để đảm bảo user và password tồn tại trước khi so sánh
+        if (!user || !user.password) {
+            return res.status(401).json({ message: 'Email hoặc mật khẩu không hợp lệ' });
+        }
+        
+        // Bây giờ user.password sẽ không còn là undefined
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (isMatch) {
             res.json({
                 _id: user.id,
                 name: user.name,
@@ -79,6 +91,8 @@ const loginUser = async (req, res) => {
             res.status(401).json({ message: 'Email hoặc mật khẩu không hợp lệ' });
         }
     } catch (error) {
+        // Thêm console.log để debug lỗi trong tương lai
+        console.error('Lỗi khi đăng nhập:', error);
         res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
     }
 };
@@ -169,6 +183,114 @@ const deleteUser = async (req, res) => {
         res.status(404).json({ message: 'Không tìm thấy người dùng' });
     }
 };
+/**
+ * @desc    Quên mật khẩu
+ * @route   POST /api/users/forgotpassword
+ * @access  Public
+ */
+const forgotPassword = async (req, res) => {
+    const user = await User.findOne({ email: req.body.email });
+
+    if (!user) {
+        return res.status(404).json({ message: 'Không tìm thấy người dùng với email này' });
+    }
+
+    // Tạo token reset
+    const resetToken = crypto.randomBytes(20).toString('hex');
+
+    // Băm token và lưu vào DB
+    user.resetPasswordToken = crypto
+        .createHash('sha256')
+        .update(resetToken)
+        .digest('hex');
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // Hết hạn sau 10 phút
+
+    await user.save({ validateBeforeSave: false });
+
+    // Tạo URL reset
+    const resetUrl = `${req.protocol}://${req.get('host')}/resetpassword/${resetToken}`;
+
+    const message = `Bạn nhận được email này vì bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu. Vui lòng truy cập link sau để đặt lại mật khẩu:\n\n${resetUrl}`;
+
+    try {
+        await sendEmail({
+            email: user.email,
+            subject: 'Yêu cầu đặt lại mật khẩu',
+            message,
+        });
+        res.status(200).json({ success: true, data: 'Email đã được gửi' });
+    } catch (err) {
+        console.error(err);
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpire = undefined;
+        await user.save({ validateBeforeSave: false });
+        return res.status(500).json({ message: 'Lỗi khi gửi email' });
+    }
+};
+
+/**
+ * @desc    Đặt lại mật khẩu
+ * @route   PUT /api/users/resetpassword/:resettoken
+ * @access  Public
+ */
+const resetPassword = async (req, res) => {
+    // Lấy token đã băm từ URL
+    const resetPasswordToken = crypto
+        .createHash('sha256')
+        .update(req.params.resettoken)
+        .digest('hex');
+
+    const user = await User.findOne({
+        resetPasswordToken,
+        resetPasswordExpire: { $gt: Date.now() }, // Token chưa hết hạn
+    });
+
+    if (!user) {
+        return res.status(400).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
+    }
+
+    // Đặt mật khẩu mới
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Đặt lại mật khẩu thành công' });
+};
+/**
+ * @desc    Upload avatar cho người dùng
+ * @route   PUT /api/users/profile/avatar
+ * @access  Private
+ */
+const uploadAvatar = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+
+        // Nếu đã có avatar cũ, xóa nó đi
+        if (user.avatar && user.avatar.public_id) {
+            await cloudinary.uploader.destroy(user.avatar.public_id);
+        }
+
+        // Upload ảnh mới lên Cloudinary
+        const result = await cloudinary.uploader.upload(req.body.avatar, {
+            folder: 'avatars',
+            width: 150,
+            crop: 'scale',
+        });
+
+        user.avatar = {
+            public_id: result.public_id,
+            url: result.secure_url,
+        };
+
+        await user.save();
+
+        res.status(200).json({ success: true, avatar: user.avatar });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi khi upload avatar', error: error.message });
+    }
+};
 
 
 module.exports = {
@@ -178,4 +300,7 @@ module.exports = {
     updateUserProfile,// << Thêm vào đây
     getUsers,     // << Thêm hàm mới
     deleteUser,
+    forgotPassword,
+    resetPassword,
+    uploadAvatar,
 };
