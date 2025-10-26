@@ -140,6 +140,35 @@ const updateUserProfile = async (req, res) => {
 // ==========================================================
 // ======   KẾT THÚC PHẦN CẬP NHẬT CHO HOẠT ĐỘNG 2   ======
 // ==========================================================
+/**
+ * @desc    Lấy tất cả người dùng (chỉ Admin)
+ * @route   GET /api/users
+ * @access  Private/Admin
+ */
+const getUsers = async (req, res) => {
+    const users = await User.find({}); // Lấy tất cả user từ DB
+    res.json(users);
+};
+
+/**
+ * @desc    Xóa một người dùng (chỉ Admin)
+ * @route   DELETE /api/users/:id
+ * @access  Private/Admin
+ */
+const deleteUser = async (req, res) => {
+    const user = await User.findById(req.params.id);
+
+    if (user) {
+        // Có thể thêm logic không cho admin tự xóa chính mình
+        if (req.user._id.equals(user._id)) {
+            return res.status(400).json({ message: 'Admin không thể tự xóa chính mình.' });
+        }
+        await user.deleteOne();
+        res.json({ message: 'Người dùng đã được xóa' });
+    } else {
+        res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+};
 
 
 module.exports = {
@@ -147,4 +176,6 @@ module.exports = {
     loginUser,
     getUserProfile,   // << Thêm vào đây
     updateUserProfile,// << Thêm vào đây
+    getUsers,     // << Thêm hàm mới
+    deleteUser,
 };

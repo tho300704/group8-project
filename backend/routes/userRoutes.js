@@ -3,35 +3,43 @@
 const express = require('express');
 const router = express.Router();
 
-// 1. Import thêm các hàm controller mới
 const { 
     signupUser, 
     loginUser,
-    getUserProfile,       // << MỚI
-    updateUserProfile     // << MỚI
+    getUserProfile,
+    updateUserProfile,
+    getUsers,
+    deleteUser,
 } = require('../controllers/userController');
 
-// 2. Import middleware bảo vệ
-const { protect } = require('../middleware/authMiddleware'); // << MỚI
+const { protect, admin } = require('../middleware/authMiddleware');
 
 // ===============================================
-//              PUBLIC ROUTES
-// Các route này bất kỳ ai cũng có thể truy cập
+//              AUTH & PROFILE ROUTES
 // ===============================================
+
+// Public routes for authentication
 router.post('/signup', signupUser);
 router.post('/login', loginUser);
 
-// ===============================================
-//              PRIVATE ROUTES
-// Các route này yêu cầu người dùng phải đăng nhập
-// và gửi kèm JWT token hợp lệ.
-// ===============================================
-
-// 3. Định nghĩa các route mới và áp dụng middleware 'protect'
-// Sử dụng router.route() để nhóm các request cho cùng endpoint '/profile'
+// Private route for user profile
+// Route tĩnh '/profile' được đặt ở đây, TRƯỚC các route động như '/:id'
 router.route('/profile')
-    .get(protect, getUserProfile)      // Áp dụng 'protect' cho GET request
-    .put(protect, updateUserProfile);  // Áp dụng 'protect' cho PUT request
+    .get(protect, getUserProfile)
+    .put(protect, updateUserProfile);
 
+// ===============================================
+//              ADMIN ROUTES
+// ===============================================
 
+// Private/Admin route to get all users
+// Đặt sau các route auth/profile nhưng trước route '/:id'
+router.route('/')
+    .get(protect, admin, getUsers);
+
+// Private/Admin route to delete a user by ID
+// Route động '/:id' được đặt ở CUỐI CÙNG
+router.route('/:id')
+    .delete(protect, admin, deleteUser);
+    
 module.exports = router;
