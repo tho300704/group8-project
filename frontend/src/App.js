@@ -3,40 +3,37 @@ import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react
 import Signup from './pages/Signup';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
-import AdminUserList from './pages/AdminUserList'; // << 1. Import trang Admin
-import { jwtDecode } from 'jwt-decode'; // << 2. Import jwt-decode đúng cách
+import AdminUserList from './pages/AdminUserList';
+import { jwtDecode } from 'jwt-decode';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import './App.css';
 
-// Component Navigation riêng để quản lý các link điều hướng
+// Component Navigation (Code này đã đúng, không cần sửa)
 function Navigation() {
     const navigate = useNavigate();
-    // Gộp 2 state lại để quản lý trạng thái đăng nhập và vai trò
     const [authState, setAuthState] = useState({
         isLoggedIn: false,
         userRole: '',
     });
 
-    // Hàm xử lý đăng xuất
     const handleLogout = () => {
-        localStorage.removeItem('userToken'); // Xóa token
-        // Cập nhật lại state để UI thay đổi
+        localStorage.removeItem('userToken');
         setAuthState({ isLoggedIn: false, userRole: '' });
-        navigate('/login'); // Chuyển về trang đăng nhập
+        navigate('/login');
     };
 
-    // Theo dõi sự thay đổi của trạng thái đăng nhập
     useEffect(() => {
         const updateAuthState = () => {
             const token = localStorage.getItem('userToken');
             if (token) {
                 try {
-                    const decodedToken = jwtDecode(token); // Giải mã token
+                    const decodedToken = jwtDecode(token);
                     setAuthState({
                         isLoggedIn: true,
-                        userRole: decodedToken.role, // Lấy role từ payload của token
+                        userRole: decodedToken.role,
                     });
                 } catch (e) {
-                    // Xử lý trường hợp token bị hỏng hoặc không hợp lệ
                     console.error("Token không hợp lệ:", e);
                     localStorage.removeItem('userToken');
                     setAuthState({ isLoggedIn: false, userRole: '' });
@@ -46,10 +43,7 @@ function Navigation() {
             }
         };
 
-        // Chạy lần đầu khi component render
         updateAuthState();
-
-        // Lắng nghe các sự kiện để cập nhật lại trạng thái
         window.addEventListener('storage', updateAuthState);
         window.addEventListener('loginStateChange', updateAuthState);
 
@@ -59,29 +53,24 @@ function Navigation() {
         };
     }, []);
 
-
     return (
         <nav>
             <ul>
                 {authState.isLoggedIn ? (
-                    // Menu khi đã đăng nhập
                     <>
                         <li><Link to="/profile">Thông tin cá nhân</Link></li>
-
-                        {/* << 3. Hiển thị link Admin nếu có quyền */}
                         {authState.userRole === 'admin' && (
                             <li><Link to="/admin/users">Quản lý User</Link></li>
                         )}
-
                         <li>
                             <button onClick={handleLogout} className="logout-button">Đăng Xuất</button>
                         </li>
                     </>
                 ) : (
-                    // Menu khi chưa đăng nhập
                     <>
                         <li><Link to="/signup">Đăng Ký</Link></li>
                         <li><Link to="/login">Đăng Nhập</Link></li>
+                        <li><Link to="/forgotpassword">Quên mật khẩu?</Link></li> {/* << Thêm link Quên mật khẩu */}
                     </>
                 )}
             </ul>
@@ -89,7 +78,7 @@ function Navigation() {
     );
 }
 
-
+// << CHỈ CÓ MỘT KHAI BÁO `App` DUY NHẤT >>
 function App() {
     return (
         <Router>
@@ -98,10 +87,15 @@ function App() {
                 <hr />
                 <main>
                     <Routes>
+                        {/* --- Tất cả các Route được đặt ở đây --- */}
                         <Route path="/signup" element={<Signup />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/profile" element={<Profile />} />
-                        <Route path="/admin/users" element={<AdminUserList />} /> {/* << 4. Thêm Route cho trang Admin */}
+                        <Route path="/admin/users" element={<AdminUserList />} />
+                        <Route path="/forgotpassword" element={<ForgotPassword />} />
+                        <Route path="/resetpassword/:resettoken" element={<ResetPassword />} />
+                        
+                        {/* Route mặc định (trang chủ) */}
                         <Route path="/" element={<h2>Chào mừng đến với trang chủ!</h2>} />
                     </Routes>
                 </main>

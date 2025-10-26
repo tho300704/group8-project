@@ -1,6 +1,6 @@
 // backend/models/User.js
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs'); // <<< BƯỚC 1: IMPORT BCRYPTJS
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -17,29 +17,43 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Vui lòng nhập mật khẩu'],
     minlength: 6, // Thêm yêu cầu độ dài tối thiểu
+    select: false, // << THÊM VÀO: Mặc định không trả về trường password khi query
   },
   role: {
     type: String,
     enum: ['user', 'admin'],
     default: 'user',
-  }
+  },
+  // --- CÁC TRƯỜNG MỚI CHO HOẠT ĐỘNG 4 ---
+  avatar: {
+    public_id: {
+      type: String,
+      // required: true,
+    },
+    url: {
+      type: String,
+      // required: true,
+    },
+  },
+  resetPasswordToken: String,
+  resetPasswordExpire: Date,
+  // ------------------------------------
 }, {
   timestamps: true,
 });
 
-// <<< BƯỚC 2: THÊM MIDDLEWARE ĐỂ MÃ HÓA MẬT KHẨU
+
+// Middleware: Tự động mã hóa mật khẩu trước khi lưu
 userSchema.pre('save', async function (next) {
-  // Chỉ chạy hàm này nếu mật khẩu đã được thay đổi (hoặc là user mới)
+  // Chỉ mã hóa lại mật khẩu nếu nó được thay đổi
   if (!this.isModified('password')) {
     return next();
   }
-
-  // Băm mật khẩu với salt factor là 10
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-
 const User = mongoose.model('User', userSchema);
+
 module.exports = User;
