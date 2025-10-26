@@ -37,5 +37,11 @@ const protect = async (req, res, next) => {
         return res.status(401).json({ message: 'Xác thực thất bại, không tìm thấy token' });
     }
 };
-
-module.exports = { protect };
+const admin = (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+        next(); // Nếu là admin, cho đi tiếp
+    } else {
+        res.status(403).json({ message: 'Không có quyền truy cập. Yêu cầu quyền Admin.' });
+    }
+};
+module.exports = { protect, admin };
