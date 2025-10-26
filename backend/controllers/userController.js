@@ -19,31 +19,21 @@ const generateToken = (id) => {
 const signupUser = async (req, res) => {
     const { name, email, password } = req.body;
 
-    // --- Yêu cầu 1: Nhận name, email, password ---
     if (!name || !email || !password) {
         return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin' });
     }
 
     try {
-        // --- Yêu cầu 2: Kiểm tra email đã tồn tại ---
         const userExists = await User.findOne({ email });
 
         if (userExists) {
             return res.status(400).json({ message: 'Email đã được sử dụng' });
         }
 
-        // --- Yêu cầu 3: Mã hóa mật khẩu ---
-        // Lưu ý: Nếu bạn cấu hình pre-save hook trong Model (do Thọ làm),
-        // bạn không cần hash ở đây. Model sẽ tự động làm.
-        // Dưới đây là cách làm trực tiếp nếu không có hook.
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        // --- Yêu cầu 4: Lưu user mới vào DB ---
         const user = await User.create({
             name,
             email,
-            password: hashedPassword, // Lưu mật khẩu đã mã hóa
+            password,
         });
 
         if (user) {
@@ -52,12 +42,16 @@ const signupUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                token: generateToken(user._id), // Đăng ký xong trả token luôn
+                token: generateToken(user._id),
             });
         } else {
             res.status(400).json({ message: 'Dữ liệu người dùng không hợp lệ' });
         }
     } catch (error) {
+        // BƯỚC QUAN TRỌNG: IN LỖI CHI TIẾT RA CONSOLE CỦA SERVER
+        console.error('!!!!!!!!!! LỖI KHI ĐĂNG KÝ !!!!!!!!!!');
+        console.error(error); // In ra toàn bộ đối tượng lỗi
+
         res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
     }
 };
@@ -68,25 +62,20 @@ const signupUser = async (req, res) => {
  * @access  Public
  */
 const loginUser = async (req, res) => {
-    // --- Yêu cầu 1: Nhận email, password ---
     const { email, password } = req.body;
 
     try {
-        // --- Yêu cầu 2: Tìm user trong DB theo email ---
         const user = await User.findOne({ email });
 
-        // --- Yêu cầu 3 & 4: So sánh mật khẩu và tạo token ---
         if (user && (await bcrypt.compare(password, user.password))) {
-            // So sánh thành công
             res.json({
                 _id: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                token: generateToken(user._id), // Trả về token
+                token: generateToken(user._id),
             });
         } else {
-            // User không tồn tại hoặc sai mật khẩu
             res.status(401).json({ message: 'Email hoặc mật khẩu không hợp lệ' });
         }
     } catch (error) {
@@ -95,7 +84,67 @@ const loginUser = async (req, res) => {
 };
 
 
+// ==========================================================
+// ======   BẮT ĐẦU PHẦN CẬP NHẬT CHO HOẠT ĐỘNG 2   ======
+// ==========================================================
+
+/**
+ * @desc    Lấy thông tin cá nhân của người dùng đã đăng nhập
+ * @route   GET /api/users/profile
+ * @access  Private (Yêu cầu đăng nhập)
+ */
+const getUserProfile = async (req, res) => {
+    // Middleware 'protect' đã chạy trước và gắn `req.user` vào request.
+    // Chúng ta chỉ cần trả về thông tin đó.
+    // `req.user` đã được loại bỏ mật khẩu bởi middleware.
+    res.json(req.user);
+};
+
+/**
+ * @desc    Cập nhật thông tin cá nhân của người dùng
+ * @route   PUT /api/users/profile
+ * @access  Private (Yêu cầu đăng nhập)
+ */
+const updateUserProfile = async (req, res) => {
+    // Lấy user từ DB để đảm bảo chúng ta đang làm việc với dữ liệu mới nhất.
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+        // Cập nhật tên và email nếu chúng được cung cấp trong body.
+        user.name = req.body.name || user.name;
+        user.email = req.body.email || user.email;
+
+        // Nếu người dùng gửi lên mật khẩu mới, cập nhật nó.
+        if (req.body.password) {
+            // Chỉ cần gán mật khẩu mới.
+            // Schema's pre-save hook sẽ tự động mã hóa nó trước khi lưu.
+            user.password = req.body.password;
+        }
+
+        const updatedUser = await user.save();
+
+        // Trả về thông tin user đã được cập nhật cùng với một token mới.
+        res.json({
+            _id: updatedUser._id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            role: updatedUser.role,
+            token: generateToken(updatedUser._id),
+        });
+    } else {
+        res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+};
+
+
+// ==========================================================
+// ======   KẾT THÚC PHẦN CẬP NHẬT CHO HOẠT ĐỘNG 2   ======
+// ==========================================================
+
+
 module.exports = {
     signupUser,
     loginUser,
+    getUserProfile,   // << Thêm vào đây
+    updateUserProfile,// << Thêm vào đây
 };
