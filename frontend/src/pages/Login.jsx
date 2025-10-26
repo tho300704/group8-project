@@ -3,14 +3,11 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-// KHÔNG CẦN DÒNG NÀY NỮA
-// const API_URL = 'http://localhost:3000/api/users'; 
-
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
-    const [token, setToken] = useState('');
+    const [token, setToken] = useState(''); // State này chỉ dùng để demo, có thể xóa đi sau này
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
@@ -19,7 +16,6 @@ const Login = () => {
         setToken('');
 
         try {
-            // SỬA LẠI DÒNG NÀY
             const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/users/login`, {
                 email,
                 password,
@@ -29,12 +25,19 @@ const Login = () => {
             setMessage(response.data.message);
             setToken(receivedToken);
 
+            // 1. Lưu token vào Local Storage
             localStorage.setItem('userToken', receivedToken);
 
-            // setTimeout(() => navigate('/profile'), 2000);
+            // 2. << DÒNG THÊM VÀO >>
+            // Phát ra một sự kiện để báo cho các component khác (như Navigation) biết rằng trạng thái đăng nhập đã thay đổi.
+            window.dispatchEvent(new Event('loginStateChange'));
+
+            // 3. Tự động chuyển hướng đến trang Profile sau 1 giây
+            setTimeout(() => {
+                navigate('/profile');
+            }, 1000);
 
         } catch (error) {
-            // Thêm log để dễ debug khi có lỗi mạng
             console.error("Lỗi khi đăng nhập:", error); 
             setMessage(error.response?.data?.message || 'Không thể kết nối đến server. Vui lòng thử lại.');
         }
@@ -54,11 +57,11 @@ const Login = () => {
                 </div>
                 <button type="submit">Đăng Nhập</button>
             </form>
-            {message && <p>{message}</p>}
+            {message && <p style={{ color: message.includes('thành công') ? 'green' : 'red' }}>{message}</p>}
             {token && (
                 <div>
-                    <h4>JWT Token nhận được:</h4>
-                    <p style={{ wordBreak: 'break-all' }}>{token}</p>
+                    <h4 style={{marginTop: '15px'}}>JWT Token nhận được (để debug):</h4>
+                    <p style={{ wordBreak: 'break-all', backgroundColor: '#f0f0f0', padding: '10px', borderRadius: '4px' }}>{token}</p>
                 </div>
             )}
         </div>

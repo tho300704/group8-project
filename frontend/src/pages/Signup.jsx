@@ -3,9 +3,6 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-// BƯỚC 1: XÓA DÒNG NÀY ĐI, CHÚNG TA SẼ DÙNG BIẾN MÔI TRƯỜNG
-// const API_URL = 'http://localhost:3000/api/users';
-
 const Signup = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -15,31 +12,57 @@ const Signup = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMessage('');
+        setMessage(''); // Xóa thông báo cũ mỗi khi submit
 
-        // Kiểm tra validation đơn giản
+        // --- VALIDATION PHÍA CLIENT ---
         if (!name || !email || !password) {
             setMessage('Vui lòng nhập đầy đủ thông tin.');
             return;
         }
 
+        // <<< THÊM VÀO: KIỂM TRA ĐỘ DÀI MẬT KHẨU >>>
+        if (password.length < 6) {
+            setMessage('Mật khẩu phải có ít nhất 6 ký tự.');
+            return; // Dừng thực thi nếu mật khẩu không hợp lệ
+        }
+        // --- KẾT THÚC VALIDATION ---
+
         try {
-            // BƯỚC 2: SỬA LẠI URL VÀ ENDPOINT CHO CHÍNH XÁC
-            const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/users/signup`, {
+            // Sử dụng biến môi trường để gọi API
+            const API_BASE_URL = process.env.REACT_APP_API_URL;
+            const response = await axios.post(`${API_BASE_URL}/api/users/signup`, {
                 name,
                 email,
                 password,
             });
 
-            setMessage(response.data.message || "Đăng ký thành công!"); // Lấy thông báo từ backend
+            // Lấy token và lưu vào Local Storage ngay sau khi đăng ký thành công
+            // Giúp người dùng không cần phải đăng nhập lại
+            if (response.data.token) {
+                localStorage.setItem('userToken', response.data.token);
+            }
+            
+            setMessage("Đăng ký thành công! Bạn sẽ được chuyển hướng...");
 
+            // Chuyển hướng đến trang Profile sau khi đăng ký và lưu token
             setTimeout(() => {
-                navigate('/login');
+                navigate('/profile'); 
             }, 2000);
 
         } catch (error) {
-            console.error("Lỗi khi đăng ký:", error); // Log lỗi ra console để dễ debug
-            setMessage(error.response?.data?.message || 'Đã có lỗi xảy ra, vui lòng thử lại.');
+            console.error("Lỗi khi đăng ký:", error);
+            
+            // Xử lý lỗi một cách chi tiết hơn
+            if (error.response) {
+                // Lỗi có phản hồi từ server (ví dụ: email đã tồn tại)
+                setMessage(error.response.data.message || 'Đã có lỗi xảy ra.');
+            } else if (error.request) {
+                // Lỗi request được gửi đi nhưng không nhận được phản hồi
+                setMessage('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại đường truyền.');
+            } else {
+                // Lỗi khác
+                setMessage('Đã có lỗi xảy ra trong quá trình gửi yêu cầu.');
+            }
         }
     };
 
@@ -49,19 +72,35 @@ const Signup = () => {
             <form onSubmit={handleSubmit}>
                 <div>
                     <label>Họ và tên:</label>
-                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} required />
+                    <input 
+                        type="text" 
+                        value={name} 
+                        onChange={(e) => setName(e.target.value)} 
+                        required 
+                    />
                 </div>
                 <div>
                     <label>Email:</label>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    <input 
+                        type="email" 
+                        value={email} 
+                        onChange={(e) => setEmail(e.target.value)} 
+                        required 
+                    />
                 </div>
                 <div>
-                    <label>Mật khẩu:</label>
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                    <label>Mật khẩu (tối thiểu 6 ký tự):</label>
+                    <input 
+                        type="password" 
+                        value={password} 
+                        onChange={(e) => setPassword(e.target.value)} 
+                        required 
+                    />
                 </div>
                 <button type="submit">Đăng Ký</button>
             </form>
-            {message && <p>{message}</p>}
+            {/* Hiển thị thông báo, có thể thêm class CSS để phân biệt thành công/thất bại */}
+            {message && <p className="form-message">{message}</p>}
         </div>
     );
 };
