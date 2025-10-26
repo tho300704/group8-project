@@ -1,38 +1,61 @@
-// src/App.js
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
-import Profile from './pages/Profile'; // Import trang Profile
+import Profile from './pages/Profile';
+import AdminUserList from './pages/AdminUserList'; // << 1. Import trang Admin
+import { jwtDecode } from 'jwt-decode'; // << 2. Import jwt-decode đúng cách
 import './App.css';
 
 // Component Navigation riêng để quản lý các link điều hướng
 function Navigation() {
     const navigate = useNavigate();
-    // Dùng state để UI tự cập nhật khi login/logout
-    const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('userToken'));
+    // Gộp 2 state lại để quản lý trạng thái đăng nhập và vai trò
+    const [authState, setAuthState] = useState({
+        isLoggedIn: false,
+        userRole: '',
+    });
 
     // Hàm xử lý đăng xuất
     const handleLogout = () => {
         localStorage.removeItem('userToken'); // Xóa token
-        setIsLoggedIn(false); // Cập nhật trạng thái
+        // Cập nhật lại state để UI thay đổi
+        setAuthState({ isLoggedIn: false, userRole: '' });
         navigate('/login'); // Chuyển về trang đăng nhập
     };
 
     // Theo dõi sự thay đổi của trạng thái đăng nhập
     useEffect(() => {
-        const handleStorageChange = () => {
-            setIsLoggedIn(!!localStorage.getItem('userToken'));
+        const updateAuthState = () => {
+            const token = localStorage.getItem('userToken');
+            if (token) {
+                try {
+                    const decodedToken = jwtDecode(token); // Giải mã token
+                    setAuthState({
+                        isLoggedIn: true,
+                        userRole: decodedToken.role, // Lấy role từ payload của token
+                    });
+                } catch (e) {
+                    // Xử lý trường hợp token bị hỏng hoặc không hợp lệ
+                    console.error("Token không hợp lệ:", e);
+                    localStorage.removeItem('userToken');
+                    setAuthState({ isLoggedIn: false, userRole: '' });
+                }
+            } else {
+                setAuthState({ isLoggedIn: false, userRole: '' });
+            }
         };
-        // Lắng nghe sự kiện storage để cập nhật nếu login/logout ở tab khác
-        window.addEventListener('storage', handleStorageChange);
-        // Cần một cách để component này "biết" khi login thành công
-        // Dưới đây là một listener sự kiện tùy chỉnh đơn giản
-        window.addEventListener('loginStateChange', handleStorageChange);
+
+        // Chạy lần đầu khi component render
+        updateAuthState();
+
+        // Lắng nghe các sự kiện để cập nhật lại trạng thái
+        window.addEventListener('storage', updateAuthState);
+        window.addEventListener('loginStateChange', updateAuthState);
 
         return () => {
-            window.removeEventListener('storage', handleStorageChange);
-            window.removeEventListener('loginStateChange', handleStorageChange);
+            window.removeEventListener('storage', updateAuthState);
+            window.removeEventListener('loginStateChange', updateAuthState);
         };
     }, []);
 
@@ -40,11 +63,19 @@ function Navigation() {
     return (
         <nav>
             <ul>
-                {isLoggedIn ? (
+                {authState.isLoggedIn ? (
                     // Menu khi đã đăng nhập
                     <>
                         <li><Link to="/profile">Thông tin cá nhân</Link></li>
-                        <li><button onClick={handleLogout} className="logout-button">Đăng Xuất</button></li>
+
+                        {/* << 3. Hiển thị link Admin nếu có quyền */}
+                        {authState.userRole === 'admin' && (
+                            <li><Link to="/admin/users">Quản lý User</Link></li>
+                        )}
+
+                        <li>
+                            <button onClick={handleLogout} className="logout-button">Đăng Xuất</button>
+                        </li>
                     </>
                 ) : (
                     // Menu khi chưa đăng nhập
@@ -70,6 +101,7 @@ function App() {
                         <Route path="/signup" element={<Signup />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/profile" element={<Profile />} />
+                        <Route path="/admin/users" element={<AdminUserList />} /> {/* << 4. Thêm Route cho trang Admin */}
                         <Route path="/" element={<h2>Chào mừng đến với trang chủ!</h2>} />
                     </Routes>
                 </main>
