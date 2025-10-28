@@ -1,66 +1,71 @@
 // src/pages/Profile.jsx
 
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+// <<< BƯỚC SỬA 1: BỎ `import axios from 'axios';` VÀ CHỈ DÙNG `api` >>>
+import api from '../api/axiosConfig'; // Đảm bảo đường dẫn này đúng
 import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
-    // --- Các state cũ ---
+    // --- Các state (giữ nguyên) ---
     const [user, setUser] = useState(null);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
-    
-    // --- << BƯỚC 1: THÊM STATE CHO AVATAR >> ---
-    const [avatar, setAvatar] = useState(''); // Để lưu URL avatar từ server
-    const [avatarPreview, setAvatarPreview] = useState(''); // Để hiển thị ảnh ngay khi chọn
-    const [uploading, setUploading] = useState(false); // Để hiển thị trạng thái đang upload
+    const [avatar, setAvatar] = useState('');
+    const [avatarPreview, setAvatarPreview] = useState('');
+    const [uploading, setUploading] = useState(false);
     
     const navigate = useNavigate();
-    const token = localStorage.getItem('userToken');
+    // Bỏ `token` vì interceptor sẽ tự xử lý
+    // const token = localStorage.getItem('userToken'); 
 
     useEffect(() => {
         const fetchUserProfile = async () => {
-            if (!token) {
-                navigate('/login');
-                return;
-            }
             try {
-                const config = { headers: { Authorization: `Bearer ${token}` } };
-                const { data } = await axios.get('http://localhost:3000/api/users/profile', config);
+                // <<< BƯỚC SỬA 2: DÙNG `api` THAY CHO `axios` >>>
+                // Không cần truyền config nữa, interceptor sẽ tự thêm token
+                const { data } = await api.get('/users/profile');
+                
                 setUser(data);
                 setName(data.name);
                 setEmail(data.email);
                 
-                // --- << BƯỚC 2: SET AVATAR TỪ DỮ LIỆU USER >> ---
                 if (data.avatar && data.avatar.url) {
                     setAvatar(data.avatar.url);
                     setAvatarPreview(data.avatar.url);
                 }
                 
             } catch (error) {
-                console.error('Lỗi khi lấy thông tin profile:', error);
-                localStorage.removeItem('userToken');
-                navigate('/login');
+                // Interceptor đã xử lý việc chuyển hướng nếu lỗi 401,
+                // nhưng chúng ta vẫn có thể log lỗi để debug
+                console.error('Không thể lấy thông tin profile, có thể token đã hết hạn hoàn toàn.', error);
             }
         };
 
-        fetchUserProfile();
-    }, [token, navigate]);
+        // Kiểm tra token ở client trước khi gọi API để tránh request thừa
+        if (localStorage.getItem('accessToken')) {
+             fetchUserProfile();
+        } else {
+            navigate('/login');
+        }
+       
+    }, [navigate]); // Bỏ `token` khỏi dependency array
     
-    // --- (Hàm handleUpdate giữ nguyên) ---
+    // --- (Hàm handleUpdate đã được sửa) ---
     const handleUpdate = async (e) => {
-        // ... code cũ không thay đổi ...
         e.preventDefault();
         setMessage('');
         try {
-            const config = { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } };
+            // <<< BƯỚC SỬA 3: DÙNG `api` THAY CHO `axios` >>>
             const updateData = { name, email };
             if (password) { updateData.password = password; }
-            const { data } = await axios.put('http://localhost:3000/api/users/profile', updateData, config);
+
+            const { data } = await api.put('/users/profile', updateData);
+            
             setUser(data);
-            localStorage.setItem('userToken', data.token);
+            // API Profile không trả về token mới trong cấu trúc Refresh Token, nên không cần cập nhật
+            // localStorage.setItem('userToken', data.token);
             setMessage('Cập nhật thông tin thành công!');
             setPassword('');
         } catch (error) {
@@ -68,12 +73,11 @@ const Profile = () => {
         }
     };
 
-    // --- << BƯỚC 3: THÊM HÀM XỬ LÝ UPLOAD AVATAR >> ---
+    // --- (Hàm handleAvatarChange đã được sửa) ---
     const handleAvatarChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Hiển thị ảnh preview ngay lập tức
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onloadend = async () => {
@@ -82,18 +86,11 @@ const Profile = () => {
             setMessage('Đang tải ảnh lên...');
             
             try {
-                const config = {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
-                };
-                
-                // Gửi chuỗi base64 lên server
-                const { data } = await axios.put('http://localhost:3000/api/users/profile/avatar', { avatar: reader.result }, config);
+                // <<< BƯỚC SỬA 4: DÙNG `api` THAY CHO `axios` >>>
+                const { data } = await api.put('/users/profile/avatar', { avatar: reader.result });
                 
                 if (data.success) {
-                    setAvatar(data.avatar.url); // Cập nhật URL avatar mới
+                    setAvatar(data.avatar.url);
                     setMessage('Cập nhật avatar thành công!');
                 }
             } catch (error) {
@@ -109,38 +106,34 @@ const Profile = () => {
     if (!user) { return <div>Đang tải thông tin cá nhân...</div>; }
 
     return (
+        // Phần JSX giữ nguyên, không cần thay đổi
         <div>
             <h2>Thông Tin Cá Nhân</h2>
-            
-            {/* --- << BƯỚC 4: HIỂN THỊ AVATAR VÀ NÚT UPLOAD >> --- */}
             <div>
                 <img 
-                    src={avatarPreview || 'https://via.placeholder.com/150'} // Ảnh mặc định
+                    src={avatarPreview || 'https://via.placeholder.com/150'}
                     alt="Avatar" 
                     style={{ width: '150px', height: '150px', borderRadius: '50%', objectFit: 'cover' }} 
                 />
                 <br />
-                <label htmlFor="avatar-upload">Đổi avatar</label>
+                <label htmlFor="avatar-upload" className="custom-file-upload">Đổi avatar</label>
                 <input 
                     id="avatar-upload"
                     type="file" 
                     accept="image/*"
                     onChange={handleAvatarChange}
-                    disabled={uploading} // Vô hiệu hóa nút khi đang upload
-                    style={{ display: 'none' }} // Ẩn input gốc
+                    disabled={uploading}
+                    style={{ display: 'none' }}
                 />
             </div>
             {uploading && <p>Đang xử lý...</p>}
             
-            {/* --- Thông tin người dùng --- */}
             <div><strong>Tên:</strong> {user.name}</div>
             <div><strong>Email:</strong> {user.email}</div>
             <hr />
             
-            {/* --- Form cập nhật thông tin --- */}
             <h3>Cập nhật thông tin</h3>
             <form onSubmit={handleUpdate}>
-                {/* ... các input cũ không thay đổi ... */}
                 <div>
                     <label>Tên:</label>
                     <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
