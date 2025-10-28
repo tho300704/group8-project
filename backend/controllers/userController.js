@@ -1,16 +1,47 @@
 // /backend/controllers/userController.js
 
 const User = require('../models/User'); // Đảm bảo đường dẫn đúng
+const RefreshToken = require('../models/RefreshToken');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto'); // Import module crypto sẵn có của Node.js
 const sendEmail = require('../utils/sendEmail'); // Import hàm gửi email
 const cloudinary = require('../utils/cloudinary');
-
+const crypto = require('crypto');
+/*
 // Hàm trợ giúp để tạo token -> Tránh lặp code
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
         expiresIn: '1d', // Token hết hạn sau 1 ngày
+    });
+};
+*/
+const generateAccessToken = (user) => {
+    return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
+        expiresIn: '15m', // Thời gian sống ngắn: 15 phút
+    });
+};
+// Hàm tạo Refresh Token và lưu vào cookie
+const generateAndSetRefreshToken = async (user, ipAddress, res) => {
+    // Tạo một chuỗi token ngẫu nhiên
+    const token = crypto.randomBytes(40).toString('hex');
+    
+    // Tạo đối tượng Refresh Token để lưu vào DB
+    const refreshToken = new RefreshToken({
+        user: user._id,
+        token,
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Hết hạn sau 7 ngày
+        createdByIp: ipAddress
+    });
+
+    await refreshToken.save();
+
+    // Set cookie ở phía client
+    res.cookie('refreshToken', token, {
+        httpOnly: true, // Chỉ server có thể truy cập, chống XSS
+        secure: process.env.NODE_ENV === 'production', // Chỉ gửi qua HTTPS ở môi trường production
+        sameSite: 'strict', // Chống CSRF
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 ngày
     });
 };
 
@@ -60,44 +91,94 @@ const signupUser = async (req, res) => {
 };
 
 /**
- * @desc    Đăng nhập người dùng
+ * @desc    Đăng nhập người dùng (ĐÃ CẬP NHẬT)
  * @route   POST /api/users/login
- * @access  Public
  */
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        // Yêu cầu Mongoose lấy cả trường password (mặc dù nó là select: false)
-        const user = await User.findOne({ email }).select('+password');
+        const user = await User.findOne({ email });
 
-        // Thêm một bước kiểm tra để đảm bảo user và password tồn tại trước khi so sánh
-        if (!user || !user.password) {
-            return res.status(401).json({ message: 'Email hoặc mật khẩu không hợp lệ' });
-        }
-        
-        // Bây giờ user.password sẽ không còn là undefined
-        const isMatch = await bcrypt.compare(password, user.password);
+        if (user && (await bcrypt.compare(password, user.password))) {
+            const accessToken = generateAccessToken(user);
+            await generateAndSetRefreshToken(user, req.ip, res);
 
-        if (isMatch) {
+            // Chỉ trả về accessToken, refreshToken được gửi qua cookie
             res.json({
                 _id: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                token: generateToken(user._id),
+                accessToken,
             });
         } else {
             res.status(401).json({ message: 'Email hoặc mật khẩu không hợp lệ' });
         }
     } catch (error) {
-        // Thêm console.log để debug lỗi trong tương lai
-        console.error('Lỗi khi đăng nhập:', error);
-        res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi máy chủ' });
     }
 };
 
+/**
+ * @desc    Tạo Access Token mới từ Refresh Token
+ * @route   POST /api/users/refresh-token
+ */
+const refreshToken = async (req, res) => {
+    const token = req.cookies.refreshToken;
 
+    if (!token) {
+        return res.status(401).json({ message: 'Không tìm thấy token' });
+    }
+
+    try {
+        const refreshTokenDoc = await RefreshToken.findOne({ token }).populate('user');
+
+        if (!refreshTokenDoc || !refreshTokenDoc.isActive) {
+            return res.status(401).json({ message: 'Refresh token không hợp lệ hoặc đã hết hạn' });
+        }
+
+        const { user } = refreshTokenDoc;
+        const newAccessToken = generateAccessToken(user);
+
+        res.json({
+            accessToken: newAccessToken,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+};
+
+/**
+ * @desc    Đăng xuất người dùng (thu hồi token)
+ * @route   POST /api/users/logout
+ */
+const logoutUser = async (req, res) => {
+    const token = req.cookies.refreshToken;
+    
+    if (!token) {
+        return res.status(204).send(); // No content
+    }
+
+    try {
+        const refreshTokenDoc = await RefreshToken.findOne({ token });
+        if (refreshTokenDoc) {
+            refreshTokenDoc.revoked = Date.now();
+            refreshTokenDoc.revokedByIp = req.ip;
+            await refreshTokenDoc.save();
+        }
+        
+        // Xóa cookie ở client
+        res.clearCookie('refreshToken');
+        res.status(200).json({ message: 'Đăng xuất thành công' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+};
 // ==========================================================
 // ======   BẮT ĐẦU PHẦN CẬP NHẬT CHO HOẠT ĐỘNG 2   ======
 // ==========================================================
@@ -303,4 +384,6 @@ module.exports = {
     forgotPassword,
     resetPassword,
     uploadAvatar,
+    refreshToken,
+    logoutUser,
 };
