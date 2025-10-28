@@ -46,11 +46,11 @@ router.put('/profile/avatar', protect, uploadAvatar);
 
 // Admin route to get all users (phải đứng trước route động /:id)
 router.route('/')
-    .get(protect, admin, getUsers);
+    .get(protect, checkRole(['admin', 'moderator']), getUsers);
 
 // Admin route to manage a specific user by ID (đặt ở cuối cùng)
 router.route('/:id')
-    .delete(protect, admin, deleteUser);
+    .delete(protect, checkRole(['admin']), deleteUser);
     // Bạn cũng có thể thêm các phương thức khác ở đây sau này, ví dụ:
     // .get(protect, admin, getUserById)
     // .put(protect, admin, updateUserByAdmin)
