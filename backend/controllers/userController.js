@@ -4,7 +4,6 @@ const User = require('../models/User'); // Đảm bảo đường dẫn đúng
 const RefreshToken = require('../models/RefreshToken');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto'); // Import module crypto sẵn có của Node.js
 const sendEmail = require('../utils/sendEmail'); // Import hàm gửi email
 const cloudinary = require('../utils/cloudinary');
 const crypto = require('crypto');
@@ -98,13 +97,23 @@ const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const user = await User.findOne({ email });
+        // << SỬA Ở ĐÂY >>
+        // Yêu cầu Mongoose lấy thêm trường 'password'
+        const user = await User.findOne({ email }).select('+password');
 
-        if (user && (await bcrypt.compare(password, user.password))) {
+        // Thêm một bước kiểm tra rõ ràng hơn để phòng trường hợp không tìm thấy user
+        if (!user) {
+            return res.status(401).json({ message: 'Email hoặc mật khẩu không hợp lệ' });
+        }
+        
+        // Bây giờ, `user.password` chắc chắn sẽ có giá trị (không phải undefined)
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (isMatch) {
             const accessToken = generateAccessToken(user);
             await generateAndSetRefreshToken(user, req.ip, res);
 
-            // Chỉ trả về accessToken, refreshToken được gửi qua cookie
+            // Trả về thông tin user và accessToken
             res.json({
                 _id: user.id,
                 name: user.name,
@@ -116,7 +125,7 @@ const loginUser = async (req, res) => {
             res.status(401).json({ message: 'Email hoặc mật khẩu không hợp lệ' });
         }
     } catch (error) {
-        console.error(error);
+        console.error(error); // In lỗi ra console để debug
         res.status(500).json({ message: 'Lỗi máy chủ' });
     }
 };
