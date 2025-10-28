@@ -1,5 +1,3 @@
-// /backend/routes/userRoutes.js
-
 const express = require('express');
 const router = express.Router();
 
@@ -17,42 +15,41 @@ const {
     logoutUser,
 } = require('../controllers/userController');
 
-const { protect, admin } = require('../middleware/authMiddleware');
+// Sửa lại import cho chính xác
+const { protect, checkRole } = require('../middleware/authMiddleware');
 
-// ===============================================
-//              AUTH & USER ROUTES (PUBLIC & PRIVATE)
-// ===============================================
 
-// Public routes for authentication and password management
+// === PUBLIC ROUTES ===
+// Các route này không yêu cầu xác thực
 router.post('/signup', signupUser);
 router.post('/login', loginUser);
 router.post('/forgotpassword', forgotPassword);
-router.put('/resetpassword/:resettoken', resetPassword); // :resettoken là động nhưng nó nằm trong ngữ cảnh /resetpassword nên an toàn
+router.put('/resetpassword/:resettoken', resetPassword);
+router.post('/refresh-token', refreshToken);
 
-// Routes for session management
-router.post('/refresh-token', refreshToken); // <<< ĐƯA LÊN TRÊN
-router.post('/logout', logoutUser);         // <<< ĐƯA LÊN TRÊN
 
-// Private routes for user profile
+// === PRIVATE ROUTES (All Authenticated Users) ===
+// Các route này yêu cầu người dùng phải đăng nhập (có token hợp lệ)
+router.post('/logout', protect, logoutUser); // Nên có protect để biết user nào logout
 router.route('/profile')
     .get(protect, getUserProfile)
     .put(protect, updateUserProfile);
-
 router.put('/profile/avatar', protect, uploadAvatar);
 
-// ===============================================
-//              ADMIN ROUTES
-// ===============================================
 
-// Admin route to get all users (phải đứng trước route động /:id)
-router.route('/')
-    .get(protect, checkRole(['admin', 'moderator']), getUsers);
+// === ADMIN & MODERATOR ROUTES ===
+// Các route này yêu cầu quyền hạn cụ thể
 
-// Admin route to manage a specific user by ID (đặt ở cuối cùng)
-router.route('/:id')
-    .delete(protect, checkRole(['admin']), deleteUser);
-    // Bạn cũng có thể thêm các phương thức khác ở đây sau này, ví dụ:
-    // .get(protect, admin, getUserById)
-    // .put(protect, admin, updateUserByAdmin)
+// Lấy danh sách users (Admin & Moderator)
+// Phải đặt route này trước route '/:id' để tránh Express nhầm 'profile' là một ID
+router.get('/', protect, checkRole(['admin', 'moderator']), getUsers);
+
+
+// === ADMIN ONLY ROUTES ===
+// Các route chỉ dành cho Admin
+
+// Quản lý user theo ID (Admin only)
+router.delete('/:id', protect, checkRole(['admin']), deleteUser);
+
 
 module.exports = router;
