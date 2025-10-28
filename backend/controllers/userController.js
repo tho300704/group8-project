@@ -17,7 +17,7 @@ const generateToken = (id) => {
 */
 const generateAccessToken = (user) => {
     return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-        expiresIn: '10s', // Thời gian sống ngắn: 15 phút
+        expiresIn: '15m', // Thời gian sống ngắn: 15 phút
     });
 };
 // Hàm tạo Refresh Token và lưu vào cookie
