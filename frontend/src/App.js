@@ -96,8 +96,11 @@ function Navigation() {
                     <>
                         <li><Link to="/profile">Thông tin cá nhân</Link></li>
                         
-                        {/* Chỉ hiển thị link này nếu người dùng là Admin */}
-                        {authState.userRole === 'admin' && (
+                        {/* 
+                        <<< SỬA Ở ĐÂY >>>
+                        Kiểm tra xem vai trò của người dùng có phải là 'admin' HOẶC 'moderator' không
+                        */}
+                        {(authState.userRole === 'admin' || authState.userRole === 'moderator') && (
                             <li><Link to="/admin/users">Quản lý User</Link></li>
                         )}
                         
@@ -110,6 +113,7 @@ function Navigation() {
                     <>
                         <li><Link to="/signup">Đăng Ký</Link></li>
                         <li><Link to="/login">Đăng Nhập</Link></li>
+                        {/* Bạn đã thêm link Quên mật khẩu từ Hoạt động 4, rất tốt! */}
                         <li><Link to="/forgotpassword">Quên mật khẩu?</Link></li>
                     </>
                 )}

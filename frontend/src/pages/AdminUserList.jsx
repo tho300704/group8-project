@@ -1,24 +1,38 @@
-// src/pages/AdminUserList.jsx
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+// <<< BƯỚC 1: SỬA IMPORT - DÙNG `api` THAY CHO `axios` >>>
+import api from '../api/axiosConfig'; 
 import { useNavigate } from 'react-router-dom';
+// <<< BƯỚC 2: IMPORT THƯ VIỆN ĐỂ GIẢI MÃ TOKEN >>>
+import { jwtDecode } from 'jwt-decode'; // <<< ĐÚNG
 
 const AdminUserList = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const navigate = useNavigate();
-    const token = localStorage.getItem('userToken');
+
+    // <<< BƯỚC 3: THÊM STATE ĐỂ LƯU VAI TRÒ CỦA NGƯỜI DÙNG HIỆN TẠI >>>
+    const [currentUserRole, setCurrentUserRole] = useState('');
 
     useEffect(() => {
-        const fetchUsers = async () => {
-            if (!token) {
-                navigate('/login');
-                return;
-            }
+        // Lấy token và giải mã để lấy vai trò ngay khi component được tải
+        const token = localStorage.getItem('accessToken'); // Đọc đúng tên token
+        if (token) {
             try {
-                const config = { headers: { Authorization: `Bearer ${token}` } };
-                const { data } = await axios.get('http://localhost:3000/api/users', config);
+                const decoded = jwtDecode(token);
+                setCurrentUserRole(decoded.role);
+            } catch (e) {
+                console.error("Token không hợp lệ, đang đăng xuất...", e);
+                // Xử lý token hỏng
+                localStorage.removeItem('accessToken');
+                navigate('/login');
+            }
+        }
+
+        const fetchUsers = async () => {
+            try {
+                // <<< BƯỚC 4: DÙNG `api` ĐỂ GỌI API, KHÔNG CẦN CONFIG >>>
+                const { data } = await api.get('/users'); // URL rút gọn vì đã có baseURL
                 setUsers(data);
             } catch (err) {
                 setError(err.response?.data?.message || 'Bạn không có quyền truy cập trang này.');
@@ -26,15 +40,19 @@ const AdminUserList = () => {
                 setLoading(false);
             }
         };
-        fetchUsers();
-    }, [token, navigate]);
+
+        if (!token) {
+            navigate('/login');
+        } else {
+            fetchUsers();
+        }
+    }, [navigate]);
 
     const handleDelete = async (userId) => {
         if (window.confirm('Bạn có chắc chắn muốn xóa người dùng này?')) {
             try {
-                const config = { headers: { Authorization: `Bearer ${token}` } };
-                await axios.delete(`http://localhost:3000/api/users/${userId}`, config);
-                // Cập nhật lại danh sách user trên UI sau khi xóa thành công
+                // <<< BƯỚC 5: DÙNG `api` ĐỂ GỌI API XÓA >>>
+                await api.delete(`/users/${userId}`);
                 setUsers(users.filter(user => user._id !== userId));
             } catch (err) {
                 alert('Lỗi khi xóa người dùng: ' + (err.response?.data?.message || 'Lỗi không xác định'));
@@ -47,7 +65,7 @@ const AdminUserList = () => {
 
     return (
         <div>
-            <h2>Quản Lý Người Dùng (Admin)</h2>
+            <h2>Quản Lý Người Dùng</h2>
             <table>
                 <thead>
                     <tr>
@@ -66,9 +84,13 @@ const AdminUserList = () => {
                             <td>{user.email}</td>
                             <td>{user.role}</td>
                             <td>
-                                <button onClick={() => handleDelete(user._id)} className="delete-button">
-                                    Xóa
-                                </button>
+                                {/* <<< BƯỚC 6: HIỂN THỊ NÚT XÓA DỰA TRÊN VAI TRÒ >>> */}
+                                {/* Chỉ render nút Xóa nếu người dùng hiện tại có vai trò là 'admin' */}
+                                {currentUserRole === 'admin' && (
+                                    <button onClick={() => handleDelete(user._id)} className="delete-button">
+                                        Xóa
+                                    </button>
+                                )}
                             </td>
                         </tr>
                     ))}
