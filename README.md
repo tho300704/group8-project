@@ -54,8 +54,8 @@ Chào mừng đến với dự án cuối kỳ của **Nhóm 8**. Đây là mộ
 
 ### 2. Clone Repository
 ```bash
-git clone <URL_repository_cua_ban>
-cd <ten_thu_muc_du_an>
+git clone https://github.com/tho300704/group8-project.git
+cd group8-project
 ```
 
 ### 3. Cấu hình Backend
