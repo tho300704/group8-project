@@ -8,6 +8,8 @@ import Profile from './pages/Profile';
 import AdminUserList from './pages/AdminUserList';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+// <<< BƯỚC 1: IMPORT COMPONENT MỚI >>>
+import AdminLogViewer from './pages/AdminLogViewer';
 
 // Import instance axios đã cấu hình
 import api from './api/axiosConfig';
@@ -31,18 +33,13 @@ function Navigation() {
     // Hàm xử lý khi người dùng nhấn nút Đăng xuất
     const handleLogout = async () => {
         try {
-            // Gọi API logout để server thu hồi Refresh Token
             await api.post('/users/logout');
         } catch (error) {
-            // Lỗi có thể xảy ra nếu token đã hết hạn, nhưng không sao,
-            // chúng ta vẫn sẽ dọn dẹp ở phía client.
             console.error("Lỗi khi gọi API logout (có thể bỏ qua):", error);
         } finally {
-            // Luôn luôn thực hiện các bước này
-            localStorage.removeItem('accessToken'); // Xóa Access Token
-            setAuthState({ isLoggedIn: false, userRole: '' }); // Cập nhật trạng thái UI
-            navigate('/login'); // Chuyển hướng về trang đăng nhập
-            // Phát sự kiện để đảm bảo các component khác cũng cập nhật
+            localStorage.removeItem('accessToken');
+            setAuthState({ isLoggedIn: false, userRole: '' });
+            navigate('/login');
             window.dispatchEvent(new Event('loginStateChange'));
         }
     };
@@ -50,38 +47,29 @@ function Navigation() {
     // useEffect để theo dõi và cập nhật trạng thái đăng nhập
     useEffect(() => {
         const updateAuthState = () => {
-            // Đọc token từ localStorage với đúng key là 'accessToken'
             const token = localStorage.getItem('accessToken');
             
             if (token) {
                 try {
-                    // Giải mã token để lấy thông tin (ví dụ: role)
                     const decodedToken = jwtDecode(token);
                     setAuthState({
                         isLoggedIn: true,
                         userRole: decodedToken.role,
                     });
                 } catch (e) {
-                    // Nếu token không hợp lệ (hỏng hoặc sai định dạng)
                     console.error("Token không hợp lệ:", e);
                     localStorage.removeItem('accessToken');
                     setAuthState({ isLoggedIn: false, userRole: '' });
                 }
             } else {
-                // Nếu không có token
                 setAuthState({ isLoggedIn: false, userRole: '' });
             }
         };
 
-        // Chạy lần đầu khi component được render
         updateAuthState();
-
-        // Lắng nghe sự kiện storage (nếu đăng nhập/đăng xuất ở tab khác)
         window.addEventListener('storage', updateAuthState);
-        // Lắng nghe sự kiện tùy chỉnh (được phát ra từ trang Login)
         window.addEventListener('loginStateChange', updateAuthState);
 
-        // Dọn dẹp listener khi component bị unmount
         return () => {
             window.removeEventListener('storage', updateAuthState);
             window.removeEventListener('loginStateChange', updateAuthState);
@@ -96,12 +84,14 @@ function Navigation() {
                     <>
                         <li><Link to="/profile">Thông tin cá nhân</Link></li>
                         
-                        {/* 
-                        <<< SỬA Ở ĐÂY >>>
-                        Kiểm tra xem vai trò của người dùng có phải là 'admin' HOẶC 'moderator' không
-                        */}
+                        {/* Hiển thị link Quản lý User cho admin và moderator */}
                         {(authState.userRole === 'admin' || authState.userRole === 'moderator') && (
                             <li><Link to="/admin/users">Quản lý User</Link></li>
+                        )}
+                        
+                        {/* <<< BƯỚC 2: THÊM LINK XEM LOGS CHỈ DÀNH CHO ADMIN >>> */}
+                        {authState.userRole === 'admin' && (
+                             <li><Link to="/admin/logs">Xem Logs</Link></li>
                         )}
                         
                         <li>
@@ -113,7 +103,6 @@ function Navigation() {
                     <>
                         <li><Link to="/signup">Đăng Ký</Link></li>
                         <li><Link to="/login">Đăng Nhập</Link></li>
-                        {/* Bạn đã thêm link Quên mật khẩu từ Hoạt động 4, rất tốt! */}
                         <li><Link to="/forgotpassword">Quên mật khẩu?</Link></li>
                     </>
                 )}
@@ -131,7 +120,7 @@ function App() {
         <Router>
             <div className="App">
                 <header className="App-header">
-                    <h1>Hệ thống Quản lý Người dùng</h1>
+                    <h1>Hệ thống Quản lý Người dùng Nâng cao</h1>
                     <Navigation />
                 </header>
                 <hr />
@@ -144,6 +133,9 @@ function App() {
                         <Route path="/admin/users" element={<AdminUserList />} />
                         <Route path="/forgotpassword" element={<ForgotPassword />} />
                         <Route path="/reset-password/:resettoken" element={<ResetPassword />} />
+                        
+                        {/* <<< BƯỚC 3: THÊM ROUTE MỚI CHO TRANG XEM LOGS >>> */}
+                        <Route path="/admin/logs" element={<AdminLogViewer />} />
                         
                         {/* Route mặc định (trang chủ) */}
                         <Route path="/" element={
