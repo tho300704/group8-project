@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
 const cloudinary = require('../utils/cloudinary');
 const sharp = require('sharp');
+const logActivity = require('../middleware/logMiddleware');
 
 // --- HÀM TRỢ GIÚP ---
 
@@ -80,12 +81,29 @@ const loginUser = async (req, res) => {
     const { email, password } = req.body;
     try {
         const user = await User.findOne({ email }).select('+password');
+
+        // --- BẮT ĐẦU LOGIC GHI LOG ---
+        // Trường hợp 1: User không tồn tại hoặc sai mật khẩu
         if (!user || !(await bcrypt.compare(password, user.password))) {
+            // Ghi lại hành động đăng nhập thất bại.
+            // Cố gắng tìm user để lấy ID nếu có thể, giúp truy vết dễ hơn.
+            const attemptedUser = user || await User.findOne({ email });
+            await logActivity(
+                'LOGIN_FAIL', 
+                req, 
+                attemptedUser ? attemptedUser._id : null, 
+                `Attempt from email: ${email}`
+            );
             return res.status(401).json({ message: 'Email hoặc mật khẩu không hợp lệ' });
         }
 
+        // Trường hợp 2: Đăng nhập thành công
         const accessToken = generateAccessToken(user);
         await generateAndSetRefreshToken(user, req.ip, res);
+
+        // Ghi lại hành động đăng nhập thành công
+        await logActivity('LOGIN_SUCCESS', req, user._id);
+        // --- KẾT THÚC LOGIC GHI LOG ---
 
         res.json({
             _id: user.id,
@@ -119,16 +137,40 @@ const refreshToken = async (req, res) => {
 
 const logoutUser = async (req, res) => {
     const token = req.cookies.refreshToken;
-    if (token) {
+    
+    // Nếu không có token, không cần làm gì cả.
+    if (!token) {
+        return res.status(200).json({ message: 'Không có session để đăng xuất' });
+    }
+    
+    try {
         const refreshTokenDoc = await RefreshToken.findOne({ token });
-        if (refreshTokenDoc) {
+        
+        if (refreshTokenDoc && refreshTokenDoc.isActive) {
+            // --- BẮT ĐẦU LOGIC GHI LOG ---
+            // Lấy userId từ document token tìm được
+            const userId = refreshTokenDoc.user;
+            
+            // Thu hồi token
             refreshTokenDoc.revoked = Date.now();
             refreshTokenDoc.revokedByIp = req.ip;
             await refreshTokenDoc.save();
+
+            // Ghi lại hành động đăng xuất
+            await logActivity('LOGOUT', req, userId);
+            // --- KẾT THÚC LOGIC GHI LOG ---
         }
+
+        // Luôn xóa cookie ở client dù token có hợp lệ hay không
+        res.clearCookie('refreshToken');
+        res.status(200).json({ message: 'Đăng xuất thành công' });
+
+    } catch (error) {
+        console.error('LỖI KHI ĐĂNG XUẤT:', error);
+        // Ngay cả khi có lỗi, vẫn cố gắng xóa cookie và trả về thành công cho client
+        res.clearCookie('refreshToken');
+        res.status(200).json({ message: 'Đã xóa session phía client, có lỗi xảy ra ở server.' });
     }
-    res.clearCookie('refreshToken');
-    res.status(200).json({ message: 'Đăng xuất thành công' });
 };
 
 const getUserProfile = async (req, res) => {

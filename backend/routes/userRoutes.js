@@ -1,6 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 
+const loginLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 phút
+    max: 5, // Cho phép tối đa 5 request mỗi IP trong 1 phút
+    message: { message: 'Quá nhiều yêu cầu đăng nhập từ IP này, vui lòng thử lại sau 1 phút.' },
+    standardHeaders: true, // Trả về thông tin rate limit trong header `RateLimit-*`
+    legacyHeaders: false, // Tắt các header cũ `X-RateLimit-*`
+});
 // --- Import Controllers ---
 const { 
     signupUser, 
@@ -27,7 +35,7 @@ const upload = require('../middleware/uploadMiddleware');
 // Không yêu cầu xác thực
 
 router.post('/signup', signupUser);
-router.post('/login', loginUser);
+router.post('/login', loginLimiter, loginUser);
 router.post('/refresh-token', refreshToken);
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:resettoken', resetPassword);
