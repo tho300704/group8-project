@@ -22,6 +22,7 @@ const {
     uploadAvatar,
     getUsers,
     deleteUser,
+    getLogs,
 } = require('../controllers/userController');
 
 // --- Import Middlewares ---
