@@ -9,6 +9,7 @@ const sendEmail = require('../utils/sendEmail');
 const cloudinary = require('../utils/cloudinary');
 const sharp = require('sharp');
 const logActivity = require('../middleware/logMiddleware');
+const Log = require('../models/Log');
 
 // --- HÀM TRỢ GIÚP ---
 
