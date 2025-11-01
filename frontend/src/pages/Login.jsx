@@ -1,29 +1,46 @@
+// src/pages/Login.jsx
+
 import React, { useState } from 'react';
 import api from '../api/axiosConfig';
-// <<< BƯỚC THÊM: IMPORT `Link` TỪ `react-router-dom` >>>
 import { useNavigate, Link } from 'react-router-dom';
+
+// Import các công cụ cần thiết từ Redux
+import { useDispatch } from 'react-redux';
+import { loginSuccess } from '../features/auth/authSlice';
 
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
+    
     const navigate = useNavigate();
+    // Khởi tạo hook `useDispatch` để có thể gửi actions
+    const dispatch = useDispatch();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setMessage('');
 
         try {
+            // Gọi API đăng nhập
             const response = await api.post('/users/login', {
                 email,
                 password,
             });
             
-            const accessToken = response.data.accessToken;
+            // Lấy toàn bộ dữ liệu trả về từ API
+            const loginData = response.data; 
+            
             setMessage('Đăng nhập thành công!');
-            localStorage.setItem('accessToken', accessToken);
-            window.dispatchEvent(new Event('loginStateChange'));
 
+            // 1. Lưu accessToken vào Local Storage
+            localStorage.setItem('accessToken', loginData.accessToken);
+
+            // 2. Cập nhật Redux store bằng cách dispatch action `loginSuccess`
+            // Truyền toàn bộ `loginData` làm payload
+            dispatch(loginSuccess(loginData));
+
+            // 3. Chuyển hướng
             setTimeout(() => {
                 navigate('/profile');
             }, 1000);
@@ -48,11 +65,9 @@ const Login = () => {
                 </div>
                 <button type="submit">Đăng Nhập</button>
             </form>
-            
             {message && <p style={{ color: message.includes('thành công') ? 'green' : 'red' }}>{message}</p>}
             
-            {/* <<< BƯỚC THÊM: THÊM LINK "QUÊN MẬT KHẨU" Ở ĐÂY >>> */}
-            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+            <div style={{ marginTop: '1rem' }}>
                 <Link to="/forgot-password">Quên mật khẩu?</Link>
             </div>
         </div>
