@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-// <<< BƯỚC SỬA 1: DÙNG `api` THAY CHO `axios` >>>
-import api from '../api/axiosConfig'; // Đảm bảo đường dẫn này đúng
-import { useNavigate } from 'react-router-dom';
+import api from '../api/axiosConfig';
+// <<< BƯỚC THÊM: IMPORT `Link` TỪ `react-router-dom` >>>
+import { useNavigate, Link } from 'react-router-dom';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -14,26 +14,16 @@ const Login = () => {
         setMessage('');
 
         try {
-            // <<< BƯỚC SỬA 2: GỌI API BẰNG `api` >>>
-            // `withCredentials: true` đã được cấu hình trong `axiosConfig`,
-            // nó sẽ tự động nhận và lưu `refreshToken` cookie.
             const response = await api.post('/users/login', {
                 email,
                 password,
             });
             
-            // <<< BƯỚC SỬA 3: LƯU ĐÚNG TÊN TOKEN >>>
-            // Backend trả về `accessToken`, chúng ta sẽ lưu nó với tên `accessToken`.
             const accessToken = response.data.accessToken;
             setMessage('Đăng nhập thành công!');
-
-            // Lưu accessToken vào Local Storage. Interceptor sẽ sử dụng nó.
             localStorage.setItem('accessToken', accessToken);
-
-            // Phát sự kiện để báo cho Navigation biết đã đăng nhập thành công.
             window.dispatchEvent(new Event('loginStateChange'));
 
-            // Tự động chuyển hướng đến trang Profile sau 1 giây.
             setTimeout(() => {
                 navigate('/profile');
             }, 1000);
@@ -58,9 +48,13 @@ const Login = () => {
                 </div>
                 <button type="submit">Đăng Nhập</button>
             </form>
+            
             {message && <p style={{ color: message.includes('thành công') ? 'green' : 'red' }}>{message}</p>}
             
-            {/* Không cần hiển thị token trong UI nữa vì nó đã hoạt động tự động */}
+            {/* <<< BƯỚC THÊM: THÊM LINK "QUÊN MẬT KHẨU" Ở ĐÂY >>> */}
+            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                <Link to="/forgot-password">Quên mật khẩu?</Link>
+            </div>
         </div>
     );
 };
