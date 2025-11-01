@@ -277,7 +277,16 @@ const resetPassword = async (req, res) => {
     }
 };
 
-
+/**
+ * @desc    Lấy tất cả logs (chỉ Admin)
+ * @route   GET /api/users/logs
+ * @access  Private/Admin
+ */
+const getLogs = async (req, res) => {
+    // Lấy 100 logs gần nhất, populate thông tin user
+    const logs = await Log.find({}).sort({ createdAt: -1 }).limit(100).populate('user', 'name email');
+    res.json(logs);
+};
 // --- EXPORT TẤT CẢ CÁC HÀM ---
 
 module.exports = {
@@ -292,4 +301,5 @@ module.exports = {
     uploadAvatar,
     forgotPassword,
     resetPassword,
+    getLogs,
 };

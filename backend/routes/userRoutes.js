@@ -66,5 +66,6 @@ router.get('/', protect, checkRole(['admin', 'moderator']), getUsers);
 // Xóa một user (Chỉ Admin)
 router.delete('/:id', protect, checkRole(['admin']), deleteUser);
 
+router.get('/logs', protect, checkRole(['admin']), getLogs);
 
 module.exports = router;
