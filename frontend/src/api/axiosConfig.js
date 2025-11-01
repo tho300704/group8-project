@@ -1,9 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-    // baseURL phải trỏ đến tiền tố API của backend
-    baseURL: process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_API_URL}/api` : 'http://localhost:3000/api',
-    withCredentials: true,
+    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3000/api',
+    withCredentials: true, // Rất quan trọng: cho phép gửi cookie
 });
 
 // Interceptor để tự động thêm Access Token vào header
@@ -13,7 +12,7 @@ api.interceptors.request.use((config) => {
         config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
-}, (error) => Promise.reject(error));
+}, (error) => Promise.reject(error));                                                                                  
 
 // Interceptor để xử lý khi Access Token hết hạn
 api.interceptors.response.use(
