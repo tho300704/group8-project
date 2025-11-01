@@ -1,8 +1,7 @@
 // src/pages/Profile.jsx
 
 import React, { useState, useEffect } from 'react';
-// <<< BƯỚC SỬA 1: BỎ `import axios from 'axios';` VÀ CHỈ DÙNG `api` >>>
-import api from '../api/axiosConfig'; // Đảm bảo đường dẫn này đúng
+import api from '../api/axiosConfig'; 
 import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
@@ -17,14 +16,10 @@ const Profile = () => {
     const [uploading, setUploading] = useState(false);
     
     const navigate = useNavigate();
-    // Bỏ `token` vì interceptor sẽ tự xử lý
-    // const token = localStorage.getItem('userToken'); 
 
     useEffect(() => {
         const fetchUserProfile = async () => {
             try {
-                // <<< BƯỚC SỬA 2: DÙNG `api` THAY CHO `axios` >>>
-                // Không cần truyền config nữa, interceptor sẽ tự thêm token
                 const { data } = await api.get('/users/profile');
                 
                 setUser(data);
@@ -37,35 +32,29 @@ const Profile = () => {
                 }
                 
             } catch (error) {
-                // Interceptor đã xử lý việc chuyển hướng nếu lỗi 401,
-                // nhưng chúng ta vẫn có thể log lỗi để debug
                 console.error('Không thể lấy thông tin profile, có thể token đã hết hạn hoàn toàn.', error);
             }
         };
 
-        // Kiểm tra token ở client trước khi gọi API để tránh request thừa
         if (localStorage.getItem('accessToken')) {
              fetchUserProfile();
         } else {
             navigate('/login');
         }
        
-    }, [navigate]); // Bỏ `token` khỏi dependency array
+    }, [navigate]);
     
-    // --- (Hàm handleUpdate đã được sửa) ---
+    // --- Hàm handleUpdate (giữ nguyên) ---
     const handleUpdate = async (e) => {
         e.preventDefault();
         setMessage('');
         try {
-            // <<< BƯỚC SỬA 3: DÙNG `api` THAY CHO `axios` >>>
             const updateData = { name, email };
             if (password) { updateData.password = password; }
 
             const { data } = await api.put('/users/profile', updateData);
             
             setUser(data);
-            // API Profile không trả về token mới trong cấu trúc Refresh Token, nên không cần cập nhật
-            // localStorage.setItem('userToken', data.token);
             setMessage('Cập nhật thông tin thành công!');
             setPassword('');
         } catch (error) {
@@ -73,35 +62,52 @@ const Profile = () => {
         }
     };
 
-    // --- (Hàm handleAvatarChange đã được sửa) ---
+    // ==========================================================
+    // ======   BẮT ĐẦU PHẦN CẬP NHẬT CHO HOẠT ĐỘNG 3   ======
+    // ==========================================================
     const handleAvatarChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onloadend = async () => {
-            setAvatarPreview(reader.result);
-            setUploading(true);
-            setMessage('Đang tải ảnh lên...');
-            
-            try {
-                // <<< BƯỚC SỬA 4: DÙNG `api` THAY CHO `axios` >>>
-                const { data } = await api.put('/users/profile/avatar', { avatar: reader.result });
-                
-                if (data.success) {
-                    setAvatar(data.avatar.url);
-                    setMessage('Cập nhật avatar thành công!');
-                }
-            } catch (error) {
-                console.error('Lỗi khi upload avatar:', error);
-                setMessage(error.response?.data?.message || 'Lỗi khi upload avatar');
-                setAvatarPreview(avatar); // Nếu lỗi, quay lại ảnh cũ
-            } finally {
-                setUploading(false);
+        // 1. Hiển thị ảnh preview ngay lập tức bằng cách tạo một URL tạm thời
+        setAvatarPreview(URL.createObjectURL(file));
+        
+        // 2. Tạo đối tượng FormData để gói file lại
+        const formData = new FormData();
+        // 'avatar' phải khớp với tên field mà Multer đang lắng nghe ở backend
+        formData.append('avatar', file); 
+
+        setUploading(true);
+        setMessage('Đang tải ảnh lên...');
+
+        try {
+            // 3. Cấu hình header cho 'multipart/form-data'
+            const config = {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            };
+
+            // 4. Gửi FormData lên server
+            const { data } = await api.put('/users/profile/avatar', formData, config);
+
+            if (data.success) {
+                // Cập nhật lại state avatar với URL thật từ Cloudinary
+                setAvatar(data.avatar.url); 
+                setMessage('Cập nhật avatar thành công!');
             }
-        };
+        } catch (error) {
+            console.error('Lỗi khi upload avatar:', error);
+            setMessage(error.response?.data?.message || 'Lỗi khi upload avatar');
+            // Nếu có lỗi, trả lại ảnh preview về ảnh cũ
+            setAvatarPreview(avatar); 
+        } finally {
+            setUploading(false);
+        }
     };
+    // ==========================================================
+    // ======    KẾT THÚC PHẦN CẬP NHẬT CHO HOẠT ĐỘNG 3   ======
+    // ==========================================================
 
     if (!user) { return <div>Đang tải thông tin cá nhân...</div>; }
 
@@ -116,7 +122,10 @@ const Profile = () => {
                     style={{ width: '150px', height: '150px', borderRadius: '50%', objectFit: 'cover' }} 
                 />
                 <br />
-                <label htmlFor="avatar-upload" className="custom-file-upload">Đổi avatar</label>
+                {/* Thêm class để có thể CSS cho đẹp hơn */}
+                <label htmlFor="avatar-upload" className="custom-file-upload">
+                    {uploading ? 'Đang tải...' : 'Đổi avatar'}
+                </label>
                 <input 
                     id="avatar-upload"
                     type="file" 
@@ -126,7 +135,7 @@ const Profile = () => {
                     style={{ display: 'none' }}
                 />
             </div>
-            {uploading && <p>Đang xử lý...</p>}
+            {/* Không cần dòng <p>Đang xử lý...</p> nữa vì đã tích hợp vào label */}
             
             <div><strong>Tên:</strong> {user.name}</div>
             <div><strong>Email:</strong> {user.email}</div>
