@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import { useParams, useNavigate } from 'react-router-dom';
+import api from '../api/axiosConfig';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 
 const ResetPassword = () => {
     const [password, setPassword] = useState('');
@@ -10,23 +10,25 @@ const ResetPassword = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setMessage('Đang xử lý...');
         try {
-            await axios.put(`http://localhost:3000/api/users/resetpassword/${resettoken}`, { password });
-            setMessage('Mật khẩu đã được đặt lại thành công!');
-            setTimeout(() => navigate('/login'), 2000);
+            const { data } = await api.put(`/users/reset-password/${resettoken}`, { password });
+            setMessage(data.message);
+            setTimeout(() => navigate('/login'), 3000); // Tự động chuyển về trang login
         } catch (err) {
-            setMessage(err.response?.data?.message || 'Lỗi xảy ra');
+            setMessage(err.response?.data?.message || 'Có lỗi xảy ra.');
         }
     };
 
     return (
         <div>
-            <h2>Đặt Lại Mật Khẩu</h2>
+            <h2>Đặt Lại Mật Khẩu Mới</h2>
             <form onSubmit={handleSubmit}>
-                <input type="password" placeholder="Nhập mật khẩu mới" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <input type="password" placeholder="Nhập mật khẩu mới" value={password} onChange={(e) => setPassword(e.target.value)} required minLength="6" />
                 <button type="submit">Lưu Mật Khẩu</button>
             </form>
             {message && <p>{message}</p>}
+            {message.includes('thành công') && <Link to="/login">Đi đến trang Đăng nhập</Link>}
         </div>
     );
 };
