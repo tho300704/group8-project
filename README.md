@@ -1,138 +1,134 @@
-# **Dự án Ứng dụng Web Quản lý Người dùng - MERN Stack**
+# Ứng dụng Web MERN Stack: Quản lý Người dùng Nâng cao
 
-Đây là dự án thực hành xây dựng một ứng dụng web Full-stack hoàn chỉnh sử dụng MERN Stack (MongoDB, Express.js, React.js, Node.js). Ứng dụng bao gồm các chức năng cốt lõi về xác thực và quản lý người dùng, phân quyền, và các tính năng nâng cao.
+Chào mừng đến với dự án cuối kỳ của **Nhóm 8**. Đây là một ứng dụng Full-stack hoàn chỉnh được xây dựng bằng MERN Stack (MongoDB, Express.js, React, Node.js), tập trung vào các tính năng xác thực và quản lý người dùng bảo mật, chuyên nghiệp.
 
-## **Mục lục**
+## ✨ Tính năng chính
 
-- [Công nghệ sử dụng](#công-nghệ-sử-dụng)
-- [Các tính năng chính](#các-tính-năng-chính)
-- [Hướng dẫn cài đặt và chạy dự án](#hướng-dẫn-cài-đặt-và-chạy-dự-án)
-  - [Yêu cầu](#yêu-cầu)
-  - [Cài đặt Backend (Server)](#cài-đặt-backend-server)
-  - [Cài đặt Frontend (Client)](#cài-đặt-frontend-client)
-- [Thành viên nhóm](#thành-viên-nhóm)
+Ứng dụng cung cấp một hệ thống User Management toàn diện với các chức năng:
 
-## **Công nghệ sử dụng**
+### 👨‍💻 Chức năng cho Người dùng
+- **Xác thực:** Đăng ký, Đăng nhập, Đăng xuất.
+- **Quản lý phiên đăng nhập:** Tự động duy trì đăng nhập bằng hệ thống **Access Token + Refresh Token**.
+- **Quản lý tài khoản:** Xem và cập nhật thông tin cá nhân (tên, email, mật khẩu).
+- **Upload Avatar:** Tải lên và xử lý ảnh đại diện, lưu trữ trên **Cloudinary**.
+- **Bảo mật:** Chức năng **Quên mật khẩu** và **Đặt lại mật khẩu** thông qua email thật (Gmail SMTP).
 
-### **Backend**
+### 👮‍♂️ Chức năng cho Quản trị viên
+- **Phân quyền nâng cao (RBAC):** Hệ thống 3 vai trò: `User`, `Moderator`, và `Admin`.
+- **Quản lý Người dùng:** Admin và Moderator có thể xem danh sách tất cả người dùng.
+- **Xóa Người dùng:** Chỉ Admin có quyền xóa tài khoản người dùng khác.
+- **Giám sát hệ thống:** Admin có thể xem **nhật ký hoạt động** chi tiết của toàn bộ người dùng.
 
-- **Node.js**: Môi trường chạy JavaScript phía server.
-- **Express.js**: Framework xây dựng API.
-- **MongoDB**: Hệ quản trị cơ sở dữ liệu NoSQL.
-- **Mongoose**: Thư viện ODM để làm việc với MongoDB.
-- **JSON Web Token (JWT)**: Dùng cho xác thực và phân quyền.
-- **Bcrypt.js**: Thư viện mã hóa mật khẩu.
-- **Nodemailer**: Dùng để gửi email (tính năng Quên mật khẩu).
-- **Cloudinary**: Dịch vụ lưu trữ và quản lý hình ảnh (tính năng Upload Avatar).
-- **Dotenv**: Quản lý biến môi trường.
+### 🛡️ Tính năng Bảo mật
+- **Mã hóa mật khẩu:** Mật khẩu được băm an toàn bằng `bcryptjs`.
+- **Xác thực API:** Các API nhạy cảm được bảo vệ bằng `JSON Web Tokens (JWT)`.
+- **Chống Brute Force:** API Đăng nhập được trang bị **Rate Limiting**, giới hạn số lần thử sai.
+- **Bảo vệ Route:** Các trang phía Frontend được bảo vệ bằng `Protected Routes`, chỉ cho phép truy cập dựa trên trạng thái đăng nhập và vai trò.
 
-### **Frontend**
+### Frontend
+- **Quản lý State chuyên nghiệp:** Sử dụng **Redux Toolkit** để quản lý trạng thái toàn cục của ứng dụng.
+- **Giao diện động:** Tự động ẩn/hiện các chức năng dựa trên vai trò của người dùng.
 
-- **React.js**: Thư viện xây dựng giao diện người dùng.
-- **React Router DOM**: Quản lý điều hướng trang.
-- **Axios**: HTTP client để gọi API.
-- **JWT Decode**: Giải mã JWT token phía client để lấy thông tin.
+## 🛠️ Công nghệ sử dụng
 
-### **Công cụ phát triển**
+- **Backend:** Node.js, Express.js
+- **Frontend:** React, Redux Toolkit
+- **Database:** MongoDB (sử dụng MongoDB Atlas)
+- **Xác thực:** JSON Web Token (JWT), cookie-parser, bcryptjs
+- **Upload ảnh:** Cloudinary, Multer, Sharp
+- **Gửi Email:** Nodemailer (với Gmail SMTP)
+- **Bảo mật:** express-rate-limit, cors
+- **Môi trường:** dotenv
 
-- **Git & GitHub**: Quản lý phiên bản và mã nguồn.
-- **VS Code**: Trình soạn thảo code.
-- **Thunder Client / Postman**: Công cụ test API.
-- **Nodemon**: Tự động khởi động lại server khi có thay đổi.
+## 🚀 Hướng dẫn Cài đặt và Chạy dự án
 
-## **Các tính năng chính**
+Để chạy dự án này trên máy của bạn, hãy làm theo các bước sau:
 
--   ✅ **Xác thực người dùng:**
-    -   Đăng ký tài khoản mới (mã hóa mật khẩu).
-    -   Đăng nhập (sử dụng JWT).
-    -   Đăng xuất.
--   👤 **Quản lý thông tin cá nhân:**
-    -   Xem thông tin cá nhân.
-    -   Cập nhật thông tin (tên, email, mật khẩu).
--   🔐 **Phân quyền (RBAC - Role-Based Access Control):**
-    -   Phân biệt vai trò `user` thường và `admin`.
-    -   Các API và giao diện được bảo vệ, chỉ `admin` mới có thể truy cập.
--   👑 **Chức năng của Admin:**
-    -   Xem danh sách tất cả người dùng trong hệ thống.
-    -   Xóa tài khoản người dùng.
--   ✨ **Tính năng nâng cao:**
-    -   **Quên mật khẩu:** Gửi email chứa link để người dùng đặt lại mật khẩu.
-    -   **Upload Avatar:** Cho phép người dùng tải lên và cập nhật ảnh đại diện (lưu trữ trên Cloudinary).
+### 1. Yêu cầu
+- [Node.js](https://nodejs.org/) (phiên bản 16 trở lên)
+- [npm](https://www.npmjs.com/)
+- [Git](https://git-scm.com/)
+- Một tài khoản [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+- Một tài khoản [Cloudinary](https://cloudinary.com/)
+- Một tài khoản [Gmail](https://mail.google.com/) đã bật Xác minh 2 bước và có Mật khẩu ứng dụng.
 
-## **Hướng dẫn cài đặt và chạy dự án**
-
-### **Yêu cầu**
-
--   [Node.js](https://nodejs.org/) (phiên bản LTS)
--   [Git](https://git-scm.com/)
--   Một tài khoản MongoDB Atlas (miễn phí).
--   Một tài khoản Cloudinary (miễn phí).
--   Một tài khoản Gmail với "Mật khẩu ứng dụng".
-
-### **1. Clone Repository**
-
+### 2. Clone Repository
 ```bash
-git clone <URL_CUA_REPOSITORY>
-cd <TEN_THU_MUC_DU_AN>
+git clone <URL_repository_cua_ban>
+cd <ten_thu_muc_du_an>
 ```
 
-### **2. Cài đặt Backend (Server)**
+### 3. Cấu hình Backend
 
-1.  **Di chuyển vào thư mục backend:**
+1.  **Di chuyển vào thư mục backend và cài đặt dependencies:**
     ```bash
     cd backend
-    ```
-
-2.  **Cài đặt các dependencies:**
-    ```bash
     npm install
     ```
 
-3.  **Tạo file `.env`:**
-    Tạo một file mới tên là `.env` trong thư mục `/backend` và thêm vào các biến môi trường sau:
+2.  **Tạo file `.env`:**
+    Tạo một file tên là `.env` trong thư mục `backend` và sao chép nội dung từ file `.env.example` (nếu có) hoặc điền các biến sau:
 
     ```env
+    # Server Configuration
     PORT=3000
-    MONGO_URI=<CHUOI_KET_NOI_MONGODB_ATLAS_CUA_BAN>
-    JWT_SECRET=<MOT_CHUOI_BI_MAT_NGAY_NHIEN_RAT_DAI>
+    NODE_ENV=development
 
-    # Cấu hình Nodemailer (Gmail)
-    EMAIL_USER=<EMAIL_GMAIL_CUA_BAN>
-    EMAIL_PASS=<MAT_KHAU_UNG_DUNG_GMAIL_CUA_BAN>
-    FROM_EMAIL=<EMAIL_GMAIL_CUA_BAN>
-    FROM_NAME="Ten Ung Dung"
+    # MongoDB Connection
+    MONGO_URI=<chuoi_ket_noi_mongodb_atlas_cua_ban>
 
-    # Cấu hình Cloudinary
-    CLOUDINARY_CLOUD_NAME=<CLOUD_NAME_CUA_BAN>
-    CLOUDINARY_API_KEY=<API_KEY_CUA_BAN>
-    CLOUDINARY_API_SECRET=<API_SECRET_CUA_BAN>
+    # JWT Secrets
+    JWT_SECRET=<mot_chuoi_bi_mat_dai_bat_ky>
+
+    # Frontend URL (cho CORS và link reset password)
+    FRONTEND_URL=http://localhost:3001
+
+    # Cloudinary Credentials
+    CLOUDINARY_CLOUD_NAME=<cloud_name_cua_ban>
+    CLOUDINARY_API_KEY=<api_key_cua_ban>
+    CLOUDINARY_API_SECRET=<api_secret_cua_ban>
+
+    # Nodemailer (Gmail) Credentials
+    EMAIL_USER=<dia_chi_gmail_cua_ban>
+    EMAIL_PASS=<mat_khau_ung_dung_16_ky_tu_cua_ban>
     ```
 
-4.  **Chạy server backend:**
+3.  **Chạy Backend Server:**
     ```bash
     npm run dev
     ```
     Server sẽ chạy tại `http://localhost:3000`.
 
-### **3. Cài đặt Frontend (Client)**
+### 4. Cấu hình Frontend
 
-1.  **Mở một terminal mới** và di chuyển vào thư mục `frontend`:
+1.  **Mở một terminal mới**, di chuyển vào thư mục `frontend` và cài đặt dependencies:
     ```bash
     cd frontend
-    ```
-
-2.  **Cài đặt các dependencies:**
-    ```bash
     npm install
     ```
 
-3.  **Chạy ứng dụng React:**
+2.  **Tạo file `.env`:**
+    Tạo một file tên là `.env` trong thư mục `frontend` và thêm biến sau:
+
+    ```env
+    REACT_APP_API_URL=http://localhost:3000
+    ```
+    *Lưu ý: `baseURL` trong code sẽ tự động thêm `/api` vào sau URL này.*
+
+3.  **Chạy Frontend:**
     ```bash
     npm start
     ```
-    Ứng dụng sẽ tự động mở trong trình duyệt tại `http://localhost:3001`.
+    Ứng dụng React sẽ mở tại `http://localhost:3001`.
 
-## **Thành viên nhóm**
-| 1   | **Nguyễn Phước Thọ**  | `xxxxxx` | **Nhóm trưởng**, Database, Git 
-| 2   | **Lê Đức Thịnh**      | `xxxxxx` | Backend (Node.js, Express.js)                |
-| 3   | **Trần Quang Định**   | `xxxxxx` | Frontend (React.js)                            |
+Bây giờ bạn có thể truy cập ứng dụng và sử dụng tất cả các tính năng!
+
+## 👥 Thành viên Nhóm 8
+
+| STT | Tên thành viên      | MSSV      | Vai trò                                      |
+|-----|---------------------|-----------|-----------------------------------------------|
+| 1   | **Nguyễn Phước Thọ**  | 21...     | Trưởng nhóm, Database, Git Manager, Tester    |
+| 2   | **Lê Đức Thịnh**      | 21...     | Lập trình viên Backend                        |
+| 3   | **Trần Quang Định**   | 21...     | Lập trình viên Frontend                       |
+
+---
