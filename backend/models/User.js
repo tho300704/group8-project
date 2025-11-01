@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin'],
+    enum: ['user', 'moderator', 'admin'], // Thêm 'moderator'
     default: 'user',
   },
   // --- CÁC TRƯỜNG MỚI CHO HOẠT ĐỘNG 4 ---

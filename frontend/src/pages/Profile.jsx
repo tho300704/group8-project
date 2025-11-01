@@ -1,66 +1,60 @@
 // src/pages/Profile.jsx
 
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api/axiosConfig'; 
 import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
-    // --- Các state cũ ---
+    // --- Các state (giữ nguyên) ---
     const [user, setUser] = useState(null);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
-    
-    // --- << BƯỚC 1: THÊM STATE CHO AVATAR >> ---
-    const [avatar, setAvatar] = useState(''); // Để lưu URL avatar từ server
-    const [avatarPreview, setAvatarPreview] = useState(''); // Để hiển thị ảnh ngay khi chọn
-    const [uploading, setUploading] = useState(false); // Để hiển thị trạng thái đang upload
+    const [avatar, setAvatar] = useState('');
+    const [avatarPreview, setAvatarPreview] = useState('');
+    const [uploading, setUploading] = useState(false);
     
     const navigate = useNavigate();
-    const token = localStorage.getItem('userToken');
 
     useEffect(() => {
         const fetchUserProfile = async () => {
-            if (!token) {
-                navigate('/login');
-                return;
-            }
             try {
-                const config = { headers: { Authorization: `Bearer ${token}` } };
-                const { data } = await axios.get('http://localhost:3000/api/users/profile', config);
+                const { data } = await api.get('/users/profile');
+                
                 setUser(data);
                 setName(data.name);
                 setEmail(data.email);
                 
-                // --- << BƯỚC 2: SET AVATAR TỪ DỮ LIỆU USER >> ---
                 if (data.avatar && data.avatar.url) {
                     setAvatar(data.avatar.url);
                     setAvatarPreview(data.avatar.url);
                 }
                 
             } catch (error) {
-                console.error('Lỗi khi lấy thông tin profile:', error);
-                localStorage.removeItem('userToken');
-                navigate('/login');
+                console.error('Không thể lấy thông tin profile, có thể token đã hết hạn hoàn toàn.', error);
             }
         };
 
-        fetchUserProfile();
-    }, [token, navigate]);
+        if (localStorage.getItem('accessToken')) {
+             fetchUserProfile();
+        } else {
+            navigate('/login');
+        }
+       
+    }, [navigate]);
     
-    // --- (Hàm handleUpdate giữ nguyên) ---
+    // --- Hàm handleUpdate (giữ nguyên) ---
     const handleUpdate = async (e) => {
-        // ... code cũ không thay đổi ...
         e.preventDefault();
         setMessage('');
         try {
-            const config = { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } };
             const updateData = { name, email };
             if (password) { updateData.password = password; }
-            const { data } = await axios.put('http://localhost:3000/api/users/profile', updateData, config);
+
+            const { data } = await api.put('/users/profile', updateData);
+            
             setUser(data);
-            localStorage.setItem('userToken', data.token);
             setMessage('Cập nhật thông tin thành công!');
             setPassword('');
         } catch (error) {
@@ -68,79 +62,87 @@ const Profile = () => {
         }
     };
 
-    // --- << BƯỚC 3: THÊM HÀM XỬ LÝ UPLOAD AVATAR >> ---
+    // ==========================================================
+    // ======   BẮT ĐẦU PHẦN CẬP NHẬT CHO HOẠT ĐỘNG 3   ======
+    // ==========================================================
     const handleAvatarChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Hiển thị ảnh preview ngay lập tức
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onloadend = async () => {
-            setAvatarPreview(reader.result);
-            setUploading(true);
-            setMessage('Đang tải ảnh lên...');
-            
-            try {
-                const config = {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
-                };
-                
-                // Gửi chuỗi base64 lên server
-                const { data } = await axios.put('http://localhost:3000/api/users/profile/avatar', { avatar: reader.result }, config);
-                
-                if (data.success) {
-                    setAvatar(data.avatar.url); // Cập nhật URL avatar mới
-                    setMessage('Cập nhật avatar thành công!');
-                }
-            } catch (error) {
-                console.error('Lỗi khi upload avatar:', error);
-                setMessage(error.response?.data?.message || 'Lỗi khi upload avatar');
-                setAvatarPreview(avatar); // Nếu lỗi, quay lại ảnh cũ
-            } finally {
-                setUploading(false);
+        // 1. Hiển thị ảnh preview ngay lập tức bằng cách tạo một URL tạm thời
+        setAvatarPreview(URL.createObjectURL(file));
+        
+        // 2. Tạo đối tượng FormData để gói file lại
+        const formData = new FormData();
+        // 'avatar' phải khớp với tên field mà Multer đang lắng nghe ở backend
+        formData.append('avatar', file); 
+
+        setUploading(true);
+        setMessage('Đang tải ảnh lên...');
+
+        try {
+            // 3. Cấu hình header cho 'multipart/form-data'
+            const config = {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            };
+
+            // 4. Gửi FormData lên server
+            const { data } = await api.put('/users/profile/avatar', formData, config);
+
+            if (data.success) {
+                // Cập nhật lại state avatar với URL thật từ Cloudinary
+                setAvatar(data.avatar.url); 
+                setMessage('Cập nhật avatar thành công!');
             }
-        };
+        } catch (error) {
+            console.error('Lỗi khi upload avatar:', error);
+            setMessage(error.response?.data?.message || 'Lỗi khi upload avatar');
+            // Nếu có lỗi, trả lại ảnh preview về ảnh cũ
+            setAvatarPreview(avatar); 
+        } finally {
+            setUploading(false);
+        }
     };
+    // ==========================================================
+    // ======    KẾT THÚC PHẦN CẬP NHẬT CHO HOẠT ĐỘNG 3   ======
+    // ==========================================================
 
     if (!user) { return <div>Đang tải thông tin cá nhân...</div>; }
 
     return (
+        // Phần JSX giữ nguyên, không cần thay đổi
         <div>
             <h2>Thông Tin Cá Nhân</h2>
-            
-            {/* --- << BƯỚC 4: HIỂN THỊ AVATAR VÀ NÚT UPLOAD >> --- */}
             <div>
                 <img 
-                    src={avatarPreview || 'https://via.placeholder.com/150'} // Ảnh mặc định
+                    src={avatarPreview || 'https://via.placeholder.com/150'}
                     alt="Avatar" 
                     style={{ width: '150px', height: '150px', borderRadius: '50%', objectFit: 'cover' }} 
                 />
                 <br />
-                <label htmlFor="avatar-upload">Đổi avatar</label>
+                {/* Thêm class để có thể CSS cho đẹp hơn */}
+                <label htmlFor="avatar-upload" className="custom-file-upload">
+                    {uploading ? 'Đang tải...' : 'Đổi avatar'}
+                </label>
                 <input 
                     id="avatar-upload"
                     type="file" 
                     accept="image/*"
                     onChange={handleAvatarChange}
-                    disabled={uploading} // Vô hiệu hóa nút khi đang upload
-                    style={{ display: 'none' }} // Ẩn input gốc
+                    disabled={uploading}
+                    style={{ display: 'none' }}
                 />
             </div>
-            {uploading && <p>Đang xử lý...</p>}
+            {/* Không cần dòng <p>Đang xử lý...</p> nữa vì đã tích hợp vào label */}
             
-            {/* --- Thông tin người dùng --- */}
             <div><strong>Tên:</strong> {user.name}</div>
             <div><strong>Email:</strong> {user.email}</div>
             <hr />
             
-            {/* --- Form cập nhật thông tin --- */}
             <h3>Cập nhật thông tin</h3>
             <form onSubmit={handleUpdate}>
-                {/* ... các input cũ không thay đổi ... */}
                 <div>
                     <label>Tên:</label>
                     <input type="text" value={name} onChange={(e) => setName(e.target.value)} />

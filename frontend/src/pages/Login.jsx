@@ -1,45 +1,46 @@
-// src/pages/Login.jsx
 import React, { useState } from 'react';
-import axios from 'axios';
+// <<< BƯỚC SỬA 1: DÙNG `api` THAY CHO `axios` >>>
+import api from '../api/axiosConfig'; // Đảm bảo đường dẫn này đúng
 import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
-    const [token, setToken] = useState(''); // State này chỉ dùng để demo, có thể xóa đi sau này
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setMessage('');
-        setToken('');
 
         try {
-            const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/users/login`, {
+            // <<< BƯỚC SỬA 2: GỌI API BẰNG `api` >>>
+            // `withCredentials: true` đã được cấu hình trong `axiosConfig`,
+            // nó sẽ tự động nhận và lưu `refreshToken` cookie.
+            const response = await api.post('/users/login', {
                 email,
                 password,
             });
             
-            const receivedToken = response.data.token;
-            setMessage(response.data.message);
-            setToken(receivedToken);
+            // <<< BƯỚC SỬA 3: LƯU ĐÚNG TÊN TOKEN >>>
+            // Backend trả về `accessToken`, chúng ta sẽ lưu nó với tên `accessToken`.
+            const accessToken = response.data.accessToken;
+            setMessage('Đăng nhập thành công!');
 
-            // 1. Lưu token vào Local Storage
-            localStorage.setItem('userToken', receivedToken);
+            // Lưu accessToken vào Local Storage. Interceptor sẽ sử dụng nó.
+            localStorage.setItem('accessToken', accessToken);
 
-            // 2. << DÒNG THÊM VÀO >>
-            // Phát ra một sự kiện để báo cho các component khác (như Navigation) biết rằng trạng thái đăng nhập đã thay đổi.
+            // Phát sự kiện để báo cho Navigation biết đã đăng nhập thành công.
             window.dispatchEvent(new Event('loginStateChange'));
 
-            // 3. Tự động chuyển hướng đến trang Profile sau 1 giây
+            // Tự động chuyển hướng đến trang Profile sau 1 giây.
             setTimeout(() => {
                 navigate('/profile');
             }, 1000);
 
         } catch (error) {
             console.error("Lỗi khi đăng nhập:", error); 
-            setMessage(error.response?.data?.message || 'Không thể kết nối đến server. Vui lòng thử lại.');
+            setMessage(error.response?.data?.message || 'Email hoặc mật khẩu không đúng.');
         }
     };
 
@@ -58,12 +59,8 @@ const Login = () => {
                 <button type="submit">Đăng Nhập</button>
             </form>
             {message && <p style={{ color: message.includes('thành công') ? 'green' : 'red' }}>{message}</p>}
-            {token && (
-                <div>
-                    <h4 style={{marginTop: '15px'}}>JWT Token nhận được (để debug):</h4>
-                    <p style={{ wordBreak: 'break-all', backgroundColor: '#f0f0f0', padding: '10px', borderRadius: '4px' }}>{token}</p>
-                </div>
-            )}
+            
+            {/* Không cần hiển thị token trong UI nữa vì nó đã hoạt động tự động */}
         </div>
     );
 };

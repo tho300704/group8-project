@@ -37,11 +37,28 @@ const protect = async (req, res, next) => {
         return res.status(401).json({ message: 'Xác thực thất bại, không tìm thấy token' });
     }
 };
-const admin = (req, res, next) => {
-    if (req.user && req.user.role === 'admin') {
-        next(); // Nếu là admin, cho đi tiếp
-    } else {
-        res.status(403).json({ message: 'Không có quyền truy cập. Yêu cầu quyền Admin.' });
-    }
+/**
+ * Middleware để kiểm tra vai trò người dùng.
+ * @param {Array<String>} roles - Mảng các vai trò được phép truy cập.
+ */
+const checkRole = (roles) => {
+    return (req, res, next) => {
+        // Middleware này phải được dùng SAU `protect`, nên `req.user` đã tồn tại
+        if (!req.user) {
+            return res.status(401).json({ message: 'Chưa xác thực' });
+        }
+
+        const userRole = req.user.role;
+
+        if (roles.includes(userRole)) {
+            // Nếu vai trò của user nằm trong danh sách được phép, cho đi tiếp
+            next();
+        } else {
+            // Nếu không, trả về lỗi 403 Forbidden
+            res.status(403).json({ message: 'Không có quyền truy cập chức năng này.' });
+        }
+    };
 };
-module.exports = { protect, admin };
+
+
+module.exports = { protect, checkRole }; // Export `checkRole` thay vì `admin`
