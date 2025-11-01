@@ -1,9 +1,6 @@
-// /backend/routes/userRoutes.js
-
 const express = require('express');
 const router = express.Router();
 
-// <<< LỖI 1: Bổ sung các controller còn thiếu vào đây
 const { 
     signupUser, 
     loginUser,
@@ -11,47 +8,52 @@ const {
     updateUserProfile,
     getUsers,
     deleteUser,
-    forgotPassword,      // << ĐÃ THÊM
-    resetPassword,       // << ĐÃ THÊM
-    uploadAvatar,        // << ĐÃ THÊM
+    forgotPassword,
+    resetPassword,
+    uploadAvatar,
+    refreshToken,
+    logoutUser,
 } = require('../controllers/userController');
 
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, checkRole } = require('../middleware/authMiddleware');
 
-// ===============================================
-//              AUTH & PROFILE ROUTES
-// ===============================================
+// <<< BƯỚC 1: IMPORT MIDDLEWARE UPLOAD >>>
+const upload = require('../middleware/uploadMiddleware');
 
-// Public routes for authentication
+
+// === PUBLIC ROUTES ===
+// Các route này không yêu cầu xác thực
 router.post('/signup', signupUser);
 router.post('/login', loginUser);
-router.post('/forgotpassword', forgotPassword); // << Đặt ở đây là hợp lý
-router.put('/resetpassword/:resettoken', resetPassword); // << Đặt ở đây là hợp lý
+router.post('/forgotpassword', forgotPassword);
+router.put('/resetpassword/:resettoken', resetPassword);
+router.post('/refresh-token', refreshToken);
 
-// Private route for user profile
-// Route tĩnh '/profile' được đặt ở đây, TRƯỚC các route động như '/:id'
+
+// === PRIVATE ROUTES (All Authenticated Users) ===
+// Các route này yêu cầu người dùng phải đăng nhập (có token hợp lệ)
+router.post('/logout', protect, logoutUser); 
 router.route('/profile')
     .get(protect, getUserProfile)
     .put(protect, updateUserProfile);
 
-// <<< LỖI 2: Bổ sung route upload avatar
-// Private route for avatar upload
-router.put('/profile/avatar', protect, uploadAvatar);
+// <<< BƯỚC 2: CẬP NHẬT ROUTE UPLOAD AVATAR >>>
+// Thêm `upload.single('avatar')` để xử lý file trước khi vào controller
+router.put('/profile/avatar', protect, upload.single('avatar'), uploadAvatar);
 
 
-// ===============================================
-//              ADMIN ROUTES
-// ===============================================
-
-// Private/Admin route to get all users
-// Đặt sau các route auth/profile nhưng trước route '/:id'
+// === ADMIN & MODERATOR ROUTES ===
+// Lấy danh sách users (Admin & Moderator)
+// Chuyển route này xuống dưới để đảm bảo thứ tự logic, mặc dù Express v5 xử lý khá tốt
+// router.get('/', protect, checkRole(['admin', 'moderator']), getUsers); 
+// Sửa thành router.route('/') để nhóm các method lại nếu cần mở rộng sau này
 router.route('/')
-    .get(protect, admin, getUsers);
+    .get(protect, checkRole(['admin', 'moderator']), getUsers);
 
-// Private/Admin route to delete a user by ID
-// Route động '/:id' được đặt ở CUỐI CÙNG
-router.route('/:id')
-    .delete(protect, admin, deleteUser);
-    
+
+// === ADMIN ONLY ROUTES ===
+// Quản lý user theo ID (Admin only)
+router.delete('/:id', protect, checkRole(['admin']), deleteUser);
+
 
 module.exports = router;
