@@ -9,125 +9,231 @@ const sendEmail = require('../utils/sendEmail');
 const cloudinary = require('../utils/cloudinary');
 const sharp = require('sharp');
 
-// --- CÁC HÀM XÁC THỰC VÀ QUẢN LÝ TOKEN ---
-// ... (Tất cả các hàm từ signupUser đến deleteUser đều giữ nguyên, không thay đổi)
-const generateAccessToken = (user) => { /* ... */ };
-const generateAndSetRefreshToken = async (user, ipAddress, res) => { /* ... */ };
-const signupUser = async (req, res) => { /* ... */ };
-const loginUser = async (req, res) => { /* ... */ };
-const refreshToken = async (req, res) => { /* ... */ };
-const logoutUser = async (req, res) => { /* ... */ };
-const getUserProfile = async (req, res) => { /* ... */ };
-const updateUserProfile = async (req, res) => { /* ... */ };
-const getUsers = async (req, res) => { /* ... */ };
-const deleteUser = async (req, res) => { /* ... */ };
-const uploadAvatar = async (req, res) => { /* ... */ };
+// --- HÀM TRỢ GIÚP ---
+
+const generateAccessToken = (user) => {
+    return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
+        expiresIn: '15m', // Thời gian sống ngắn
+    });
+};
+
+const generateAndSetRefreshToken = async (user, ipAddress, res) => {
+    const token = crypto.randomBytes(40).toString('hex');
+    const refreshToken = new RefreshToken({
+        user: user._id,
+        token,
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 ngày
+        createdByIp: ipAddress
+    });
+    await refreshToken.save();
+
+    res.cookie('refreshToken', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+};
 
 
-// ==========================================================
-// ====== BẮT ĐẦU PHẦN CẬP NHẬT CHO HOẠT ĐỘNG 4 (PASSWORD RESET) ======
-// ==========================================================
+// --- CÁC HÀM CONTROLLER ---
 
-/**
- * @desc    Xử lý yêu cầu quên mật khẩu
- * @route   POST /api/users/forgot-password
- * @access  Public
- */
-const forgotPassword = async (req, res) => {
-    const { email } = req.body;
+const signupUser = async (req, res) => {
+    console.log('--- SIGNUP CONTROLLER REACHED ---');
+    //console.log('Request Body:', req.body);
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+        return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin' });
+    }
+    if (password.length < 6) {
+        return res.status(400).json({ message: 'Mật khẩu phải có ít nhất 6 ký tự' });
+    }
 
     try {
-        const user = await User.findOne({ email });
-
-        // Để tăng cường bảo mật, chúng ta không báo lỗi "không tìm thấy email".
-        // Dù có tìm thấy hay không, vẫn trả về thông báo thành công chung chung.
-        // Điều này ngăn kẻ tấn công dò xem email nào đã tồn tại trong hệ thống.
-        if (!user) {
-            return res.status(200).json({ 
-                success: true, 
-                message: 'Nếu email của bạn tồn tại trong hệ thống, bạn sẽ nhận được một email hướng dẫn đặt lại mật khẩu.' 
-            });
+        const userExists = await User.findOne({ email });
+        if (userExists) {
+            return res.status(400).json({ message: 'Email đã được sử dụng' });
         }
 
-        // 1. Tạo một token reset (là một chuỗi ngẫu nhiên, an toàn)
-        const resetToken = crypto.randomBytes(20).toString('hex');
+        const user = await User.create({ name, email, password });
 
-        // 2. Băm token này bằng SHA256 và lưu vào DB.
-        // Chúng ta không bao giờ lưu token gốc vào DB.
-        user.resetPasswordToken = crypto
-            .createHash('sha256')
-            .update(resetToken)
-            .digest('hex');
-        
-        // 3. Đặt thời gian hết hạn cho token là 10 phút kể từ bây giờ.
-        user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+        // Tự động đăng nhập sau khi đăng ký
+        const accessToken = generateAccessToken(user);
+        await generateAndSetRefreshToken(user, req.ip, res);
 
-        await user.save({ validateBeforeSave: false }); // Bỏ qua validation khi lưu
-        // 4. Tạo URL reset mà người dùng sẽ click vào trong email.
-        // URL này chứa token gốc (chưa băm).
-        const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-
-        const message = `Bạn nhận được email này vì bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu cho tài khoản của bạn.\n\nVui lòng nhấn vào link sau để đặt lại mật khẩu (link sẽ hết hạn sau 10 phút):\n\n${resetUrl}\n\nNếu bạn không yêu cầu điều này, vui lòng bỏ qua email này.`;
-
-        // 5. Gửi email
-        await sendEmail({
+        res.status(201).json({
+            _id: user.id,
+            name: user.name,
             email: user.email,
-            subject: 'Yêu cầu đặt lại mật khẩu',
-            message,
+            role: user.role,
+            accessToken,
         });
 
-        res.status(200).json({ success: true, message: 'Email hướng dẫn đã được gửi.' });
+    } catch (error) {
+        console.error('LỖI KHI ĐĂNG KÝ:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ khi đăng ký' });
+    }
+};
 
+const loginUser = async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const user = await User.findOne({ email }).select('+password');
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ message: 'Email hoặc mật khẩu không hợp lệ' });
+        }
+
+        const accessToken = generateAccessToken(user);
+        await generateAndSetRefreshToken(user, req.ip, res);
+
+        res.json({
+            _id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            accessToken,
+        });
+    } catch (error) {
+        console.error('LỖI KHI ĐĂNG NHẬP:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+};
+
+const refreshToken = async (req, res) => {
+    const token = req.cookies.refreshToken;
+    if (!token) return res.status(401).json({ message: 'Không tìm thấy token' });
+
+    try {
+        const refreshTokenDoc = await RefreshToken.findOne({ token }).populate('user');
+        if (!refreshTokenDoc || !refreshTokenDoc.isActive) {
+            return res.status(401).json({ message: 'Refresh token không hợp lệ hoặc đã hết hạn' });
+        }
+        const { user } = refreshTokenDoc;
+        const newAccessToken = generateAccessToken(user);
+        res.json({ accessToken: newAccessToken });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+};
+
+const logoutUser = async (req, res) => {
+    const token = req.cookies.refreshToken;
+    if (token) {
+        const refreshTokenDoc = await RefreshToken.findOne({ token });
+        if (refreshTokenDoc) {
+            refreshTokenDoc.revoked = Date.now();
+            refreshTokenDoc.revokedByIp = req.ip;
+            await refreshTokenDoc.save();
+        }
+    }
+    res.clearCookie('refreshToken');
+    res.status(200).json({ message: 'Đăng xuất thành công' });
+};
+
+const getUserProfile = async (req, res) => {
+    res.json(req.user);
+};
+
+const updateUserProfile = async (req, res) => {
+    const user = await User.findById(req.user._id);
+    if (user) {
+        user.name = req.body.name || user.name;
+        user.email = req.body.email || user.email;
+        if (req.body.password) {
+            user.password = req.body.password;
+        }
+        const updatedUser = await user.save();
+        res.json({
+            _id: updatedUser._id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            role: updatedUser.role,
+        });
+    } else {
+        res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+};
+
+const getUsers = async (req, res) => {
+    const users = await User.find({});
+    res.json(users);
+};
+
+const deleteUser = async (req, res) => {
+    const user = await User.findById(req.params.id);
+    if (user) {
+        if (req.user._id.equals(user._id)) {
+            return res.status(400).json({ message: 'Admin không thể tự xóa chính mình.' });
+        }
+        await user.deleteOne();
+        res.json({ message: 'Người dùng đã được xóa' });
+    } else {
+        res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+};
+
+const uploadAvatar = async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: 'Vui lòng chọn một file ảnh.' });
+    try {
+        const user = await User.findById(req.user.id);
+        if (user.avatar && user.avatar.public_id) {
+            await cloudinary.uploader.destroy(user.avatar.public_id);
+        }
+        const processedImageBuffer = await sharp(req.file.buffer).resize(500, 500).toFormat('webp').webp({ quality: 90 }).toBuffer();
+        const uploadResult = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream({ folder: 'avatars' }, (error, result) => {
+                if (error) return reject(error);
+                resolve(result);
+            });
+            uploadStream.end(processedImageBuffer);
+        });
+        user.avatar = { public_id: uploadResult.public_id, url: uploadResult.secure_url };
+        await user.save();
+        res.status(200).json({ success: true, message: 'Upload avatar thành công', avatar: user.avatar });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi máy chủ khi upload avatar' });
+    }
+};
+
+const forgotPassword = async (req, res) => {
+    const { email } = req.body;
+    try {
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(200).json({ success: true, message: 'Nếu email của bạn tồn tại trong hệ thống, bạn sẽ nhận được một email hướng dẫn.' });
+        }
+        const resetToken = crypto.randomBytes(20).toString('hex');
+        user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+        user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+        await user.save({ validateBeforeSave: false });
+        const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+        const message = `Bạn nhận được email này vì bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu...\n\nNhấn vào link sau để tiếp tục (hết hạn sau 10 phút):\n\n${resetUrl}`;
+        await sendEmail({ email: user.email, subject: 'Yêu cầu đặt lại mật khẩu', message });
+        res.status(200).json({ success: true, message: 'Email hướng dẫn đã được gửi.' });
     } catch (err) {
         console.error('LỖI KHI GỬI EMAIL RESET PASSWORD:', err);
-        // Trong trường hợp gửi email thất bại, xóa token đã tạo ra khỏi DB.
-        // Logic này cần được cải thiện để đảm bảo user có thể thử lại.
-        // Tạm thời chỉ log lỗi và báo lỗi server.
         res.status(500).json({ message: 'Lỗi khi gửi email, vui lòng thử lại sau.' });
     }
 };
 
-
-/**
- * @desc    Đặt lại mật khẩu mới bằng token
- * @route   PUT /api/users/reset-password/:resettoken
- * @access  Public
- */
 const resetPassword = async (req, res) => {
-    // 1. Lấy token gốc từ URL params và băm nó lại.
-    const resetPasswordToken = crypto
-        .createHash('sha256')
-        .update(req.params.resettoken)
-        .digest('hex');
-
+    const resetPasswordToken = crypto.createHash('sha256').update(req.params.resettoken).digest('hex');
     try {
-        // 2. Tìm user trong DB có token đã băm khớp VÀ token chưa hết hạn.
-        const user = await User.findOne({
-            resetPasswordToken,
-            resetPasswordExpire: { $gt: Date.now() },
-        });
-
+        const user = await User.findOne({ resetPasswordToken, resetPasswordExpire: { $gt: Date.now() } });
         if (!user) {
             return res.status(400).json({ message: 'Token không hợp lệ hoặc đã hết hạn.' });
         }
-
-        // 3. Cập nhật mật khẩu mới và xóa các trường token.
         user.password = req.body.password;
         user.resetPasswordToken = undefined;
         user.resetPasswordExpire = undefined;
-        await user.save(); // pre-save hook sẽ tự động hash mật khẩu mới.
-
+        await user.save();
         res.status(200).json({ success: true, message: 'Đặt lại mật khẩu thành công.' });
-    
     } catch (error) {
         console.error('LỖI KHI RESET PASSWORD:', error);
         res.status(500).json({ message: 'Lỗi máy chủ khi đặt lại mật khẩu.' });
     }
 };
-
-// ==========================================================
-// ======  KẾT THÚC PHẦN CẬP NHẬT CHO HOẠT ĐỘNG 4   ======
-// ==========================================================
 
 
 // --- EXPORT TẤT CẢ CÁC HÀM ---
@@ -142,6 +248,6 @@ module.exports = {
     getUsers,
     deleteUser,
     uploadAvatar,
-    forgotPassword, // Đảm bảo export
-    resetPassword,  // Đảm bảo export
+    forgotPassword,
+    resetPassword,
 };

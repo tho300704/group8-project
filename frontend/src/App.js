@@ -143,7 +143,7 @@ function App() {
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/admin/users" element={<AdminUserList />} />
                         <Route path="/forgotpassword" element={<ForgotPassword />} />
-                        <Route path="/resetpassword/:resettoken" element={<ResetPassword />} />
+                        <Route path="/reset-password/:resettoken" element={<ResetPassword />} />
                         
                         {/* Route mặc định (trang chủ) */}
                         <Route path="/" element={
