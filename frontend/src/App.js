@@ -1,7 +1,7 @@
 // src/App.js
 
 import React from 'react'; // Bỏ useEffect và useState vì Redux sẽ quản lý
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate} from 'react-router-dom';
 
 // --- Redux Imports ---
 import { useSelector, useDispatch } from 'react-redux';
