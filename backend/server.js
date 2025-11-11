@@ -18,7 +18,9 @@ const app = express();
 // 1. Tạo một danh sách các nguồn gốc được phép (allowed origins)
 const allowedOrigins = [
     'http://localhost:3001', // Cho môi trường development (React)
-    process.env.FRONTEND_URL  // URL của frontend trên Vercel, lấy từ biến môi trường
+    process.env.FRONTEND_URL,  // URL của frontend trên Vercel, lấy từ biến môi trường
+    'https://group8-project-git-main-thos-projects-195d982f.vercel.app', // Thêm URL preview
+    'https://group8-project-butxkdkj1-thos-projects-195d982f.vercel.app',
 ];
 
 // 2. Cấu hình CORS để sử dụng danh sách này
