@@ -1,19 +1,48 @@
 // /backend/server.js
 const express = require('express');
 const dotenv = require('dotenv');
-const connectDB = require('./config/db'); // Giả sử bạn có file kết nối DB
+const connectDB = require('./config/db');
 const cors = require('cors');
-dotenv.config(); // Load biến môi trường từ file .env
-console.log('JWT Secret from .env:', process.env.JWT_SECRET); 
 const cookieParser = require('cookie-parser');
-connectDB(); // Kết nối tới MongoDB
+
+dotenv.config();
+connectDB();
 
 const app = express();
 
+
+// ==========================================================
+// ======   BẮT ĐẦU PHẦN CẬP NHẬT CHO DEPLOYMENT   ======
+// ==========================================================
+
+// 1. Tạo một danh sách các nguồn gốc được phép (allowed origins)
+const allowedOrigins = [
+    'http://localhost:3001', // Cho môi trường development (React)
+    process.env.FRONTEND_URL  // URL của frontend trên Vercel, lấy từ biến môi trường
+];
+
+// 2. Cấu hình CORS để sử dụng danh sách này
 app.use(cors({
-    origin: 'http://localhost:3001', // Chỉ định rõ nguồn gốc của frontend
-    credentials: true // <<< Rất quan trọng: Cho phép gửi cookie
+    origin: function (origin, callback) {
+        // Cho phép các request không có origin (ví dụ: mobile apps, Postman/Thunder Client)
+        if (!origin) return callback(null, true);
+        
+        // Nếu origin của request nằm trong danh sách cho phép, cho phép nó
+        if (allowedOrigins.indexOf(origin) === -1) {
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
+    credentials: true // Cho phép gửi và nhận cookie
 }));
+
+
+// ==========================================================
+// ======   KẾT THÚC PHẦN CẬP NHẬT CHO DEPLOYMENT   ======
+// ==========================================================
+
+
 // Middleware để đọc req.body dạng JSON
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -25,7 +54,6 @@ app.get('/', (req, res) => {
 });
 
 // Sử dụng user routes
-// Mọi request tới /api/users/... sẽ được xử lý bởi userRoutes
 app.use('/api/users', require('./routes/userRoutes'));
 
 const PORT = process.env.PORT || 3000;
